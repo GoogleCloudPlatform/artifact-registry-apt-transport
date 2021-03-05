@@ -15,13 +15,8 @@
 package apt
 
 import (
-	"bufio"
-	"context"
-	"errors"
 	"fmt"
-	"io"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -32,17 +27,6 @@ type AptMessage struct {
 	fields      map[string][]string
 }
 
-// AptMessageReader supports reading Apt messages.
-type AptMessageReader struct {
-	reader  *bufio.Reader
-	message *AptMessage
-}
-
-// AptMessageWriter supports writing Apt messages.
-type AptMessageWriter struct {
-	writer io.Writer
-}
-
 // Get returns the first AptMessage Field for `key`, or "".
 func (m *AptMessage) Get(key string) string {
 	if vals, ok := m.fields[key]; ok {
@@ -51,16 +35,6 @@ func (m *AptMessage) Get(key string) string {
 		}
 	}
 	return ""
-}
-
-// NewAptMessageReader returns an AptMessageReader.
-func NewAptMessageReader(r *bufio.Reader) *AptMessageReader {
-	return &AptMessageReader{reader: r}
-}
-
-// NewAptMessageWriter returns an AptMessageWriter.
-func NewAptMessageWriter(w io.Writer) *AptMessageWriter {
-	return &AptMessageWriter{writer: w}
 }
 
 func (m *AptMessage) String() string {
@@ -82,138 +56,6 @@ func (m *AptMessage) String() string {
 	message = append(message, "")
 	message = append(message, "") // End with a newline.
 	return strings.Join(message, "\n")
-}
-
-// WriteMessage writes an AptMessage.
-func (w *AptMessageWriter) WriteMessage(m AptMessage) error {
-	return w.writeString(m.String())
-}
-
-// WriteString writes a raw string.
-func (w *AptMessageWriter) writeString(s string) error {
-	if _, err := w.writer.Write([]byte(s)); err != nil {
-		return err
-	}
-	return nil
-}
-
-// SendCapabilities writes a 100 Capabilities message.
-func (w *AptMessageWriter) SendCapabilities() error {
-	return w.WriteMessage(new100Message())
-}
-
-// Log writes a 101 Log message.
-func (w *AptMessageWriter) Log(msg string) error {
-	return w.WriteMessage(new101Message(msg))
-}
-
-// URIStart writes a 200 URI Start message.
-func (w *AptMessageWriter) URIStart(uri, size, lastModified string) error {
-	return w.WriteMessage(new200Message(uri, size, lastModified))
-}
-
-// URIDone writes a 201 URI Done message.
-func (w *AptMessageWriter) URIDone(uri, size, lastModified, md5Hash, filename string, ims bool) error {
-	return w.WriteMessage(new201Message(uri, size, lastModified, md5Hash, filename, ims))
-}
-
-// FailURI writes a 400 URI Failure message.
-func (w *AptMessageWriter) FailURI(uri, msg string) error {
-	return w.WriteMessage(new400Message(uri, msg))
-}
-
-// Fail writes a 401 General Failure message.
-func (w *AptMessageWriter) Fail(msg string) error {
-	return w.WriteMessage(new401Message(msg))
-}
-
-// ReadMessage reads lines from `reader` until a complete message is received.
-func (r *AptMessageReader) ReadMessage(ctx context.Context) (*AptMessage, error) {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-		line, err := r.reader.ReadString('\n')
-		if err != nil {
-			/*
-				if err == io.EOF || err == io.ErrClosedPipe {
-					// TODO: what to return in this case?
-				}
-			*/
-			return nil, err
-		}
-
-		line = strings.TrimSpace(line)
-		if line == "" {
-			if r.message == nil {
-				return nil, errors.New("Empty message")
-			}
-
-			// Message is done, return and reset.
-			msg := r.message
-			r.message = nil
-			return msg, nil
-		}
-
-		if r.message == nil {
-			r.message = &AptMessage{}
-			if err := r.parseHeader(line); err != nil {
-				return nil, err
-			}
-		} else {
-			if err := r.parseField(line); err != nil {
-				return nil, err
-			}
-		}
-	}
-}
-
-func (r *AptMessageReader) parseHeader(line string) error {
-	if line == "" {
-		return errors.New("Empty message header")
-	}
-	if r.message.code != 0 || r.message.description != "" {
-		return errors.New("Double parsing header")
-	}
-	line = strings.TrimSpace(line)
-	parts := strings.SplitN(line, " ", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("Malformed header %q, not enough parts", line)
-	}
-	code, err := strconv.Atoi(strings.TrimSpace(parts[0]))
-	if err != nil {
-		return fmt.Errorf("Malformed header %q, code is not an integer", line)
-	}
-
-	r.message.code = code
-	r.message.description = strings.TrimSpace(parts[1])
-	return nil
-}
-
-func (r *AptMessageReader) parseField(line string) error {
-	if line == "" {
-		return errors.New("Empty message field")
-	}
-	line = strings.TrimSpace(line)
-	parts := strings.SplitN(line, ":", 2)
-	if len(parts) < 2 {
-		return fmt.Errorf("Malformed field %q, not enough parts", line)
-	}
-	if r.message.fields == nil {
-		r.message.fields = make(map[string][]string)
-	}
-	key := strings.TrimSpace(parts[0])
-	value := strings.TrimSpace(parts[1])
-	if key == "" || value == "" {
-		return fmt.Errorf("Malformed field %q, empty key or value", line)
-	}
-
-	fieldlist := r.message.fields[key]
-	fieldlist = append(fieldlist, value)
-	r.message.fields[key] = fieldlist
-	return nil
 }
 
 func new100Message() AptMessage {
