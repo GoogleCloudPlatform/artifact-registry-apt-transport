@@ -23,6 +23,6 @@ import (
 )
 
 func main() {
-	apt := apt.NewAptMethod(os.Stdout, bufio.NewReader(os.Stdin))
+	apt := apt.NewAptMethod(bufio.NewReader(os.Stdin), os.Stdout)
 	apt.Run(context.Background())
 }

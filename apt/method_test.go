@@ -25,31 +25,31 @@ import (
 func TestHandleConfigure(t *testing.T) {
 	var tests = []struct {
 		configItems []string
-		expected    AptMethodConfig
+		expected    aptMethodConfig
 	}{
 		{
 			[]string{
 				"Acquire::gar::Service-Account-JSON=/path/to/creds.json",
 				"Acquire::gar::Service-Account-Email=email-address@domain",
 			},
-			AptMethodConfig{serviceAccountJSON: "/path/to/creds.json"},
+			aptMethodConfig{serviceAccountJSON: "/path/to/creds.json"},
 		},
 		{
 			[]string{
 				"Acquire::gar::Service-Account-Email=email-address@domain",
 			},
-			AptMethodConfig{serviceAccountEmail: "email-address@domain"},
+			aptMethodConfig{serviceAccountEmail: "email-address@domain"},
 		},
 		{
 			[]string{
 				"some::other::config=value",
 			},
-			AptMethodConfig{},
+			aptMethodConfig{},
 		},
 	}
 
 	for _, tt := range tests {
-		method := &AptMethod{config: &AptMethodConfig{}}
+		method := &AptMethod{config: &aptMethodConfig{}}
 		msg := &AptMessage{
 			code:        601,
 			description: "Configuration",
@@ -93,7 +93,7 @@ func TestAptMethodRun(t *testing.T) {
 
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
-	workMethod := NewAptMethod(stdoutwriter, bufio.NewReader(stdinreader))
+	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
 	workMethod.client = fakeHttpClient{}
 	workMethod.dl = fakeDownloader{}
 
@@ -159,7 +159,7 @@ func TestAptMethodRun404(t *testing.T) {
 
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
-	workMethod := NewAptMethod(stdoutwriter, bufio.NewReader(stdinreader))
+	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
 	workMethod.client = fakeHttpClient{code: 404}
 	workMethod.dl = fakeDownloader{}
 
@@ -205,7 +205,7 @@ func TestAptMethodRun304(t *testing.T) {
 
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
-	workMethod := NewAptMethod(stdoutwriter, bufio.NewReader(stdinreader))
+	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
 	workMethod.client = fakeHttpClient{code: 304}
 	workMethod.dl = fakeDownloader{}
 
@@ -251,7 +251,7 @@ func TestAptMethodRunFail(t *testing.T) {
 
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
-	workMethod := NewAptMethod(stdoutwriter, bufio.NewReader(stdinreader))
+	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
 	workMethod.client = fakeHttpClient{code: 404}
 	workMethod.dl = fakeDownloader{}
 

@@ -107,12 +107,8 @@ func (w *AptMessageWriter) Log(msg string) error {
 	return w.WriteMessage(new101Message(msg))
 }
 
-// TODO: validating doesn't make sense here if noone ever checks this error
 // URIStart writes a 200 URI Start message.
 func (w *AptMessageWriter) URIStart(uri, size, lastModified string) error {
-	if uri == "" || size == "" {
-		return errors.New("Must provide URI and Size")
-	}
 	return w.WriteMessage(new200Message(uri, size, lastModified))
 }
 
@@ -184,11 +180,11 @@ func (r *AptMessageReader) parseHeader(line string) error {
 	line = strings.TrimSpace(line)
 	parts := strings.SplitN(line, " ", 2)
 	if len(parts) != 2 {
-		return errors.New("Malformed header")
+		return fmt.Errorf("Malformed header %q, not enough parts", line)
 	}
 	code, err := strconv.Atoi(strings.TrimSpace(parts[0]))
 	if err != nil {
-		return errors.New("Malformed header")
+		return fmt.Errorf("Malformed header %q, code is not an integer", line)
 	}
 
 	r.message.code = code
@@ -203,7 +199,7 @@ func (r *AptMessageReader) parseField(line string) error {
 	line = strings.TrimSpace(line)
 	parts := strings.SplitN(line, ":", 2)
 	if len(parts) < 2 {
-		return errors.New("Malformed field")
+		return fmt.Errorf("Malformed field %q, not enough parts", line)
 	}
 	if r.message.fields == nil {
 		r.message.fields = make(map[string][]string)
@@ -211,7 +207,7 @@ func (r *AptMessageReader) parseField(line string) error {
 	key := strings.TrimSpace(parts[0])
 	value := strings.TrimSpace(parts[1])
 	if key == "" || value == "" {
-		return errors.New("Malformed field")
+		return fmt.Errorf("Malformed field %q, empty key or value", line)
 	}
 
 	fieldlist := r.message.fields[key]
@@ -244,12 +240,12 @@ func new200Message(uri, size, lastModified string) AptMessage {
 	return AptMessage{code: 200, description: "URI Start", fields: fields}
 }
 
-func new201Message(uri, size, lastModified, md5Hash, filename string, ims bool) AptMessage {
+func new201Message(uri, size, lastModified, md5Hash, filename string, imsHit bool) AptMessage {
 	fields := make(map[string][]string)
 	fields["URI"] = []string{uri}
 	fields["Last-Modified"] = []string{lastModified}
 	fields["Filename"] = []string{filename}
-	if ims {
+	if imsHit {
 		fields["IMS-Hit"] = []string{"true"}
 	} else {
 		fields["Size"] = []string{size}
