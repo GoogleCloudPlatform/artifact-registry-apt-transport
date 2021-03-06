@@ -68,12 +68,12 @@ func TestHandleConfigure(t *testing.T) {
 
 }
 
-type fakeHttpClient struct {
+type fakeHTTPClient struct {
 	code   int
 	header map[string][]string
 }
 
-func (m fakeHttpClient) Do(req *http.Request) (*http.Response, error) {
+func (m fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	if m.code == 0 {
 		m.code = 200
 	}
@@ -94,7 +94,7 @@ func TestAptMethodRun(t *testing.T) {
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
 	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
-	workMethod.client = fakeHttpClient{}
+	workMethod.client = fakeHTTPClient{}
 	workMethod.dl = fakeDownloader{}
 
 	ctx := context.Background()
@@ -160,7 +160,7 @@ func TestAptMethodRun404(t *testing.T) {
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
 	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
-	workMethod.client = fakeHttpClient{code: 404}
+	workMethod.client = fakeHTTPClient{code: 404}
 	workMethod.dl = fakeDownloader{}
 
 	ctx := context.Background()
@@ -206,7 +206,7 @@ func TestAptMethodRun304(t *testing.T) {
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
 	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
-	workMethod.client = fakeHttpClient{code: 304}
+	workMethod.client = fakeHTTPClient{code: 304}
 	workMethod.dl = fakeDownloader{}
 
 	ctx := context.Background()
@@ -252,7 +252,7 @@ func TestAptMethodRunFail(t *testing.T) {
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
 	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
-	workMethod.client = fakeHttpClient{code: 404}
+	workMethod.client = fakeHTTPClient{code: 404}
 	workMethod.dl = fakeDownloader{}
 
 	ctx := context.Background()

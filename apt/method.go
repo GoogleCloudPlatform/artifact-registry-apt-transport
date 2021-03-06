@@ -65,6 +65,7 @@ type aptMethodConfig struct {
 	serviceAccountJSON, serviceAccountEmail string
 }
 
+// Run runs the method.
 func (m *AptMethod) Run(ctx context.Context) {
 	m.writer.SendCapabilities()
 	for {
