@@ -8,6 +8,6 @@ Build-Depends: debhelper (>= 9.20160709), dh-golang (>= 1.1), golang-go
 Package: artifact-registry-apt-transport
 Architecture: any
 Depends: ${misc:Depends}
-Description: Google Artifact Registry Apt transport
+Description: Artifact Registry Apt transport
  Contains an apt transport `ar+https` that can be used to configure
  authenticated access to your Artifact Registry package repository.

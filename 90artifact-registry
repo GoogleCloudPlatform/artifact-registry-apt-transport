@@ -1,4 +1,4 @@
-# Options for the Google Artifact Registry APT transport method.
+# Options for the Artifact Registry APT transport method.
 Acquire::gar {
     # Use Service-Account-JSON as you would $GOOGLE_APPLICATION_CREDENTIALS
     # a path to a service account key in JSON format. If both
