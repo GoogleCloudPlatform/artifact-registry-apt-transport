@@ -1,3 +1,17 @@
+//  Copyright 2021 Google LLC
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 package apt
 
 import (
@@ -9,18 +23,28 @@ import (
 
 func TestAptMessageGet(t *testing.T) {
 	var tests = []struct {
-		message       AptMessage
-		key, expected string
+		message  AptMessage
+		expected string
 	}{
 		{
+			// Happy case.
 			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"key": []string{"val1", "val2"}}},
-			"key",
 			"val1",
+		},
+		{
+			// Missing key.
+			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"some-other-key": []string{"val1", "val2"}}},
+			"",
+		},
+		{
+			// Missing value.
+			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"key": []string{}}},
+			"",
 		},
 	}
 
 	for _, tt := range tests {
-		if res := tt.message.Get(tt.key); res != tt.expected {
+		if res := tt.message.Get("key"); res != tt.expected {
 			t.Errorf("failed, expected: %q got: %q", tt.expected, res)
 		}
 	}
@@ -44,17 +68,53 @@ func TestAptWriterWriteMessage(t *testing.T) {
 			// Capital letters before lowercase, then alphabetical.
 			"123 Fake\nZkey: val3\nakey: val1\nakey: val2\nzkey: val4\n\n",
 		},
+		{
+			AptMessage{
+				code: 123,
+				// Missing description.
+				fields: map[string][]string{
+					"akey": []string{"val1"},
+				},
+			},
+			"123 \nakey: val1\n\n",
+		},
+		{
+			AptMessage{
+				// missing code.
+				description: "Fake",
+				fields: map[string][]string{
+					"akey": []string{"val1"},
+				},
+			},
+			"0 Fake\nakey: val1\n\n",
+		},
+		{
+			AptMessage{
+				code:        123,
+				description: "Fake",
+				// missing fields.
+			},
+			"123 Fake\n\n",
+		},
+		{
+			AptMessage{
+				code:        123,
+				description: "Fake",
+				fields: map[string][]string{
+					// Missing field value.
+					"akey": []string{},
+				},
+			},
+			"123 Fake\n\n",
+		},
 	}
 
 	for _, tt := range tests {
-		// Run 20 times.
-		for i := 0; i < 20; i++ {
-			var buffer bytes.Buffer
-			writer := NewAptMessageWriter(&buffer)
-			err := writer.WriteMessage(tt.message)
-			if err != nil || buffer.String() != tt.expected {
-				t.Errorf("failed, expected:\n%q\ngot:\n%q", tt.expected, buffer.String())
-			}
+		var buffer bytes.Buffer
+		writer := NewAptMessageWriter(&buffer)
+		err := writer.WriteMessage(tt.message)
+		if err != nil || buffer.String() != tt.expected {
+			t.Errorf("failed, expected:\n%q\ngot:\n%q", tt.expected, buffer.String())
 		}
 	}
 }

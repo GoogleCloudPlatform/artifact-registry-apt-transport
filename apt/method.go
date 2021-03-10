@@ -1,3 +1,17 @@
+//  Copyright 2021 Google LLC
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 package apt
 
 import (
@@ -16,11 +30,13 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
-func NewAptMethod(output io.Writer, input *bufio.Reader) *AptMethod {
+// NewAptMethod returns an AptMethod.
+func NewAptMethod(input *bufio.Reader, output io.Writer) *AptMethod {
 	return &AptMethod{
-		config: &AptMethodConfig{},
+		config: &aptMethodConfig{},
 		writer: NewAptMessageWriter(output),
 		reader: NewAptMessageReader(input),
+		dl:     downloaderImpl{},
 	}
 }
 
@@ -34,20 +50,22 @@ type downloader interface {
 	download(io.ReadCloser, string) (string, error)
 }
 
-type realDownloader struct{}
+type downloaderImpl struct{}
 
+// AptMethod represents the method handler.
 type AptMethod struct {
-	config *AptMethodConfig
-	writer *AptMessageWriter
 	reader *AptMessageReader
+	writer *AptMessageWriter
+	config *aptMethodConfig
 	client httpClient
 	dl     downloader
 }
 
-type AptMethodConfig struct {
+type aptMethodConfig struct {
 	serviceAccountJSON, serviceAccountEmail string
 }
 
+// Run runs the method.
 func (m *AptMethod) Run(ctx context.Context) {
 	m.writer.SendCapabilities()
 	for {
@@ -58,7 +76,6 @@ func (m *AptMethod) Run(ctx context.Context) {
 		}
 		msg, err := m.reader.ReadMessage(ctx)
 		if err != nil {
-			// TODO: log?
 			continue
 		}
 		switch msg.code {
@@ -67,12 +84,13 @@ func (m *AptMethod) Run(ctx context.Context) {
 		case 601:
 			m.handleConfigure(msg)
 		default:
-			m.writer.Fail("Unsupported API")
+			// TODO: now write a test for this.
+			m.writer.Fail(fmt.Sprintf("Unsupported message code %d received from apt", msg.code))
 		}
 	}
 }
 
-func (m *AptMethod) getClient() error {
+func (m *AptMethod) initClient() error {
 	if m.client != nil {
 		return nil
 	}
@@ -82,28 +100,33 @@ func (m *AptMethod) getClient() error {
 	switch {
 	case m.config.serviceAccountJSON != "":
 		json, err := ioutil.ReadFile(m.config.serviceAccountJSON)
-		if err == nil {
-			creds, ierr := google.CredentialsFromJSON(ctx, json)
-			if ierr == nil {
-				ts = creds.TokenSource
-			}
+		if err != nil {
+			return fmt.Errorf("Failed to obtain creds: %v", err)
 		}
+		creds, err := google.CredentialsFromJSON(ctx, json)
+		if err != nil {
+			return fmt.Errorf("Failed to obtain creds: %v", err)
+		}
+		ts = creds.TokenSource
 	case m.config.serviceAccountEmail != "":
 		ts = google.ComputeTokenSource(m.config.serviceAccountEmail)
 	default:
 		creds, err := google.FindDefaultCredentials(ctx)
-		if err == nil {
-			ts = creds.TokenSource
+		if err != nil {
+			return fmt.Errorf("Failed to obtain creds: %v", err)
 		}
+		ts = creds.TokenSource
 	}
 	if ts == nil {
-		return errors.New("Failed to obtain token source")
+		return errors.New("Failed to obtain creds")
 	}
 	m.client = oauth2.NewClient(ctx, ts)
 	return nil
 }
 
-func (r realDownloader) download(body io.ReadCloser, filename string) (string, error) {
+// download performs the actual downloading to target file and returns
+// an MD5 hash of the downloaded file.
+func (r downloaderImpl) download(body io.ReadCloser, filename string) (string, error) {
 	defer body.Close()
 	data, err := ioutil.ReadAll(body)
 	if err != nil {
@@ -119,33 +142,26 @@ func (r realDownloader) download(body io.ReadCloser, filename string) (string, e
 	return fmt.Sprintf("%x", md5.Sum(data)), err
 }
 
-// TODO: testing. this validates the message (could be separated), optionally adds a header, makes a GET request, and sends appropriate 2xx messages to apt.
-// it also returns an error that we don't care about..
 func (m *AptMethod) handleAcquire(msg *AptMessage) error {
-	// === VALIDATE MESSAGE ===
 	uri := msg.Get("URI")
 	if uri == "" {
-		err := errors.New("No URI provided")
+		err := errors.New("No URI provided in Acquire message")
 		m.writer.Fail(err.Error())
 		return err
 	}
 	filename := msg.Get("Filename")
 	if filename == "" {
-		err := errors.New("No filename provided")
+		err := errors.New("No filename provided in Acquire message")
 		m.writer.FailURI(uri, err.Error())
 		return err
 	}
 	ifModifiedSince := msg.Get("Last-Modified")
-	// === END VALIDATE MESSAGE ===
 
-	// === GET CLIENT ===
-	if err := m.getClient(); err != nil {
+	if err := m.initClient(); err != nil {
 		m.writer.FailURI(uri, err.Error())
 		return err
 	}
-	// === END GET CLIENT ===
 
-	// === MAKE REQUEST ===
 	realuri := strings.Replace(uri, "ar+https", "https", 1)
 	req, err := http.NewRequest("GET", realuri, nil)
 	if err != nil {
@@ -160,9 +176,7 @@ func (m *AptMethod) handleAcquire(msg *AptMessage) error {
 		m.writer.FailURI(uri, err.Error())
 		return err
 	}
-	// === END MAKE REQUEST ===
 
-	// === HANDLE RESPONSE ===
 	size := resp.Header.Get("Content-Length")
 	lastModified := resp.Header.Get("Last-Modified")
 	switch resp.StatusCode {
@@ -170,9 +184,6 @@ func (m *AptMethod) handleAcquire(msg *AptMessage) error {
 		// It's weird to send URI Start after we've already contacted
 		// the server, but we need to know the size.
 		m.writer.URIStart(uri, size, lastModified)
-		if m.dl == nil {
-			m.dl = realDownloader{}
-		}
 		md5Hash, err := m.dl.download(resp.Body, filename)
 		if err != nil {
 			m.writer.FailURI(uri, err.Error())
@@ -189,7 +200,6 @@ func (m *AptMethod) handleAcquire(msg *AptMessage) error {
 		m.writer.FailURI(uri, err.Error())
 		return err
 	}
-	// === END HANDLE RESPONSE ===
 
 	return nil
 }

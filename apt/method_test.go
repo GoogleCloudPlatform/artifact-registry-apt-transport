@@ -1,3 +1,17 @@
+//  Copyright 2021 Google LLC
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 package apt
 
 import (
@@ -11,31 +25,31 @@ import (
 func TestHandleConfigure(t *testing.T) {
 	var tests = []struct {
 		configItems []string
-		expected    AptMethodConfig
+		expected    aptMethodConfig
 	}{
 		{
 			[]string{
 				"Acquire::gar::Service-Account-JSON=/path/to/creds.json",
 				"Acquire::gar::Service-Account-Email=email-address@domain",
 			},
-			AptMethodConfig{serviceAccountJSON: "/path/to/creds.json"},
+			aptMethodConfig{serviceAccountJSON: "/path/to/creds.json"},
 		},
 		{
 			[]string{
 				"Acquire::gar::Service-Account-Email=email-address@domain",
 			},
-			AptMethodConfig{serviceAccountEmail: "email-address@domain"},
+			aptMethodConfig{serviceAccountEmail: "email-address@domain"},
 		},
 		{
 			[]string{
 				"some::other::config=value",
 			},
-			AptMethodConfig{},
+			aptMethodConfig{},
 		},
 	}
 
 	for _, tt := range tests {
-		method := &AptMethod{config: &AptMethodConfig{}}
+		method := &AptMethod{config: &aptMethodConfig{}}
 		msg := &AptMessage{
 			code:        601,
 			description: "Configuration",
@@ -54,12 +68,12 @@ func TestHandleConfigure(t *testing.T) {
 
 }
 
-type fakeHttpClient struct {
+type fakeHTTPClient struct {
 	code   int
 	header map[string][]string
 }
 
-func (m fakeHttpClient) Do(req *http.Request) (*http.Response, error) {
+func (m fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	if m.code == 0 {
 		m.code = 200
 	}
@@ -79,8 +93,8 @@ func TestAptMethodRun(t *testing.T) {
 
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
-	workMethod := NewAptMethod(stdoutwriter, bufio.NewReader(stdinreader))
-	workMethod.client = fakeHttpClient{}
+	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
+	workMethod.client = fakeHTTPClient{}
 	workMethod.dl = fakeDownloader{}
 
 	ctx := context.Background()
@@ -145,8 +159,8 @@ func TestAptMethodRun404(t *testing.T) {
 
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
-	workMethod := NewAptMethod(stdoutwriter, bufio.NewReader(stdinreader))
-	workMethod.client = fakeHttpClient{code: 404}
+	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
+	workMethod.client = fakeHTTPClient{code: 404}
 	workMethod.dl = fakeDownloader{}
 
 	ctx := context.Background()
@@ -191,8 +205,8 @@ func TestAptMethodRun304(t *testing.T) {
 
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
-	workMethod := NewAptMethod(stdoutwriter, bufio.NewReader(stdinreader))
-	workMethod.client = fakeHttpClient{code: 304}
+	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
+	workMethod.client = fakeHTTPClient{code: 304}
 	workMethod.dl = fakeDownloader{}
 
 	ctx := context.Background()
@@ -237,8 +251,8 @@ func TestAptMethodRunFail(t *testing.T) {
 
 	stdinreader, stdinwriter := io.Pipe()
 	stdoutreader, stdoutwriter := io.Pipe()
-	workMethod := NewAptMethod(stdoutwriter, bufio.NewReader(stdinreader))
-	workMethod.client = fakeHttpClient{code: 404}
+	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
+	workMethod.client = fakeHTTPClient{code: 404}
 	workMethod.dl = fakeDownloader{}
 
 	ctx := context.Background()
