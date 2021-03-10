@@ -1,4 +1,4 @@
-artifact-registry-apt-transport (1:20210304.00-g1) stable; urgency=medium
+apt-transport-artifact-registry (1:20210304.00-g1) stable; urgency=medium
 
   * Initial commit.
 
