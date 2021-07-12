@@ -30,6 +30,10 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
+const (
+	cloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
+)
+
 // NewAptMethod returns an AptMethod.
 func NewAptMethod(input *bufio.Reader, output io.Writer) *AptMethod {
 	return &AptMethod{
@@ -103,7 +107,7 @@ func (m *AptMethod) initClient() error {
 		if err != nil {
 			return fmt.Errorf("Failed to obtain creds: %v", err)
 		}
-		creds, err := google.CredentialsFromJSON(ctx, json)
+		creds, err := google.CredentialsFromJSON(ctx, json, cloudPlatformScope)
 		if err != nil {
 			return fmt.Errorf("Failed to obtain creds: %v", err)
 		}
