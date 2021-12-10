@@ -1,5 +1,6 @@
 Source: apt-transport-artifact-registry
-Maintainer: Google Cloud Team <gc-team@google.com>
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Google Cloud Team <gc-team@google.com>
 Section: misc
 Priority: optional
 Standards-Version: 3.9.8
