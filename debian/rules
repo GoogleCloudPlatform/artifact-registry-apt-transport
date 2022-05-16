@@ -7,7 +7,8 @@ export DH_OPTIONS
 export DH_GOPKG := github.com/GoogleCloudPlatform/artifact-registry-apt-transport
 export CGO_ENABLED := 0
 export GOCACHE := /tmp/.cache
-export GOPROXY := https://proxy.golang.org
+
+export GOPROXY := off  #https://proxy.golang.org
 export GO111MODULE := on
 
 %:
@@ -17,6 +18,7 @@ override_dh_golang:
 	# We don't use any packaged dependencies, so skip dh_golang step.
 
 override_dh_auto_build:
+	update-ca-certificates
 	dh_auto_build -O--buildsystem=golang -- -ldflags="-s -w" -mod=readonly
 
 override_dh_auto_install:
