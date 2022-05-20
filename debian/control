@@ -1,10 +1,14 @@
-Source: apt-transport-artifact-registry
+Source: apt-transport-ar
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Google Cloud Team <gc-team@google.com>
 Section: misc
 Priority: optional
 Standards-Version: 3.9.8
-Build-Depends: debhelper (>= 9.20160709), dh-golang (>= 1.1), golang-go, ca-certificates
+Build-Depends: debhelper (>= 13),
+               dh-golang (>= 1.16~),
+               golang-go (>= 1.1~6),
+               golang-golang-x-net-dev,
+               golang-golang-x-oauth2-google-dev | golang-golang-x-oauth2-dev
 
 Package: apt-transport-artifact-registry
 Architecture: any

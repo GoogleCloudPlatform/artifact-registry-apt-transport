@@ -9,20 +9,21 @@ export CGO_ENABLED := 0
 export GOCACHE := /tmp/.cache
 
 export GOPROXY := off  #https://proxy.golang.org
-export GO111MODULE := on
+export GO111MODULE := off
 
 %:
 	dh $@  --buildsystem=golang --with=golang
 
-override_dh_golang:
-	# We don't use any packaged dependencies, so skip dh_golang step.
+#override_dh_golang:
+# We don't use any packaged dependencies, so skip dh_golang step.
 
 override_dh_auto_build:
-	update-ca-certificates
-	dh_auto_build -O--buildsystem=golang -- -ldflags="-s -w" -mod=readonly
+#	#update-ca-certificates
+	dh_auto_build -O--buildsystem=golang -- -ldflags="-s -w"
+#-mod=readonly
 
 override_dh_auto_install:
-	# Binary-only package.
+#	# Binary-only package.
 	dh_auto_install -- --no-source
-	install -d debian/apt-transport-artifact-registry/usr/lib/apt
+#	install -d debian/apt-transport-artifact-registry/usr/lib/apt
 	mv debian/apt-transport-artifact-registry/usr/bin debian/apt-transport-artifact-registry/usr/lib/apt/methods
