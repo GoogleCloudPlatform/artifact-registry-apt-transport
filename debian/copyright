@@ -1,6 +1,7 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: google-compute-engine
+Upstream-Name: artifact-registry-apt-transport
 Upstream-Contact: gc-team@google.com
+Source: https://github.com/GoogleCloudPlatform/artifact-registry-apt-transport
 
 Files: *
 Copyright: Copyright 2021 Google LLC
@@ -8,6 +9,7 @@ License: Apache-2.0
 
 Files: debian/*
 Copyright: Copyright 2021 Google LLC
+           2022 Canonical Ltd.
 License: Apache-2.0
 
 License: Apache-2.0

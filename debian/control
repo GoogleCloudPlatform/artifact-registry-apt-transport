@@ -3,7 +3,7 @@ Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Google Cloud Team <gc-team@google.com>
 Section: misc
 Priority: optional
-Build-Depends: debhelper (= 13),
+Build-Depends: debhelper (>= 13),
                dh-golang (>= 1.16~),
                golang-go (>= 1.16~),
                golang-golang-x-net-dev,

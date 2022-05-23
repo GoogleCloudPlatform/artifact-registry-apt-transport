@@ -1,4 +1,4 @@
-apt-transport-artifact-registry (1:20221805.00-g1ubuntu1) kinetic; urgency=medium
+apt-transport-artifact-registry (1:20220518.00-g1ubuntu1) kinetic; urgency=medium
 
   * New release.
 
