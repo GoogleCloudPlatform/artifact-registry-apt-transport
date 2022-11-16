@@ -80,6 +80,9 @@ func (m *AptMethod) Run(ctx context.Context) {
 		}
 		msg, err := m.reader.ReadMessage(ctx)
 		if err != nil {
+			if err == io.EOF || err == io.ErrClosedPipe {
+				return
+			}
 			continue
 		}
 		switch msg.code {

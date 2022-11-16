@@ -44,11 +44,7 @@ func (r *AptMessageReader) ReadMessage(ctx context.Context) (*AptMessage, error)
 		}
 		line, err := r.reader.ReadString('\n')
 		if err != nil {
-			/*
-				if err == io.EOF || err == io.ErrClosedPipe {
-					// TODO: what to return in this case?
-				}
-			*/
+			// io.EOF, io.ErrClosedPipe, etc. should be handled by callers
 			return nil, err
 		}
 
