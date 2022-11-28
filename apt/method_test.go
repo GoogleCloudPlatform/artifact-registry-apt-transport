@@ -336,7 +336,7 @@ func TestAptMethodRunReaderErrClosedPipe(t *testing.T) {
 	defer cancel()
 	go workMethod.Run(ctx2)
 
-	// Close the read buffer to replicate force an io.ErrClosedPipe.
+	// Close the read buffer to force an io.ErrClosedPipe.
 	if err := stdoutreader.Close(); err != nil {
 		t.Fatalf("failed to close read buffer, %v", err)
 	}
