@@ -290,3 +290,71 @@ func TestAptMethodRunFail(t *testing.T) {
 		}
 	}
 }
+
+// Test the case where the remote-end closes its pipe:
+func TestAptMethodRunReaderEOF(t *testing.T) {
+	stdinreader, _ := io.Pipe()
+	stdoutreader, stdoutwriter := io.Pipe()
+	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
+
+	ctx := context.Background()
+	ctx2, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go workMethod.Run(ctx2)
+
+	// Close the write buffer to force an io.EOF.
+	if err := stdoutwriter.Close(); err != nil {
+		t.Fatalf("failed to close write buffer, %v", err)
+	}
+
+	reader := AptMessageReader{reader: bufio.NewReader(stdoutreader)}
+	msg, err := reader.ReadMessage(ctx)
+	if err != io.EOF {
+		t.Fatalf("failed, %v", err)
+	}
+	if msg != nil {
+		t.Errorf("failed, no message to return on EOF")
+	}
+
+	cancel()
+
+	for _, p := range []io.Closer{stdinreader, stdoutreader, stdoutwriter} {
+		if err := p.Close(); err != nil {
+			t.Errorf("Error from %v: %v", p, err)
+		}
+	}
+}
+
+// Test the case where the client-end sees EOF
+func TestAptMethodRunReaderErrClosedPipe(t *testing.T) {
+	stdinreader, _ := io.Pipe()
+	stdoutreader, stdoutwriter := io.Pipe()
+	workMethod := NewAptMethod(bufio.NewReader(stdinreader), stdoutwriter)
+
+	ctx := context.Background()
+	ctx2, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go workMethod.Run(ctx2)
+
+	// Close the read buffer to replicate force an io.ErrClosedPipe.
+	if err := stdoutreader.Close(); err != nil {
+		t.Fatalf("failed to close read buffer, %v", err)
+	}
+
+	reader := AptMessageReader{reader: bufio.NewReader(stdoutreader)}
+	msg, err := reader.ReadMessage(ctx)
+	if err != io.ErrClosedPipe {
+		t.Fatalf("failed, %v", err)
+	}
+	if msg != nil {
+		t.Errorf("failed, no message to return on ErrClosedPipe")
+	}
+
+	cancel()
+
+	for _, p := range []io.Closer{stdinreader, stdoutreader, stdoutwriter} {
+		if err := p.Close(); err != nil {
+			t.Errorf("Error from %v: %v", p, err)
+		}
+	}
+}
