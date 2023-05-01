@@ -114,6 +114,12 @@ func (m *AptMethod) initClient() error {
 		ts = creds.TokenSource
 	case m.config.serviceAccountEmail != "":
 		ts = google.ComputeTokenSource(m.config.serviceAccountEmail)
+	case m.config.accessTokenENV != "":
+		accessToken := os.Getenv(m.config.accessTokenENV)
+		if accessToken == "" {
+			return fmt.Errorf("Failed to obtain token from environment variable: %s", m.config.accessTokenENV)
+		}
+		ts = oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken})
 	default:
 		creds, err := google.FindDefaultCredentials(ctx)
 		if err != nil {
