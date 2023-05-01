@@ -66,7 +66,7 @@ type AptMethod struct {
 }
 
 type aptMethodConfig struct {
-	serviceAccountJSON, serviceAccountEmail string
+	serviceAccountJSON, serviceAccountEmail, accessTokenENV string
 }
 
 // Run runs the method.
@@ -236,6 +236,14 @@ func (m *AptMethod) handleConfigure(msg *AptMessage) {
 				return
 			}
 			m.config.serviceAccountEmail = strings.TrimSpace(parts[1])
+		}
+		if strings.Contains(configItem, "Acquire::gar::Access-Token-ENV") {
+			parts := strings.SplitN(configItem, "=", 2)
+			if len(parts) != 2 {
+				// TODO: log this?
+				return
+			}
+			m.config.accessTokenENV = strings.TrimSpace(parts[1])
 		}
 	}
 	// Enforce the precedence of these two options.
