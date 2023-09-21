@@ -23,19 +23,19 @@ import (
 	"strings"
 )
 
-// AptMessageReader supports reading Apt messages.
-type AptMessageReader struct {
+// MessageReader supports reading Apt messages.
+type MessageReader struct {
 	reader  *bufio.Reader
-	message *AptMessage
+	message *Message
 }
 
 // NewAptMessageReader returns an AptMessageReader.
-func NewAptMessageReader(r *bufio.Reader) *AptMessageReader {
-	return &AptMessageReader{reader: r}
+func NewAptMessageReader(r *bufio.Reader) *MessageReader {
+	return &MessageReader{reader: r}
 }
 
 // ReadMessage reads lines from `reader` until a complete message is received.
-func (r *AptMessageReader) ReadMessage(ctx context.Context) (*AptMessage, error) {
+func (r *MessageReader) ReadMessage(ctx context.Context) (*Message, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -65,7 +65,7 @@ func (r *AptMessageReader) ReadMessage(ctx context.Context) (*AptMessage, error)
 		}
 
 		if r.message == nil {
-			r.message = &AptMessage{}
+			r.message = &Message{}
 			if err := r.parseHeader(line); err != nil {
 				return nil, err
 			}
@@ -77,7 +77,7 @@ func (r *AptMessageReader) ReadMessage(ctx context.Context) (*AptMessage, error)
 	}
 }
 
-func (r *AptMessageReader) parseHeader(line string) error {
+func (r *MessageReader) parseHeader(line string) error {
 	if line == "" {
 		return errors.New("empty message header")
 	}
@@ -99,7 +99,7 @@ func (r *AptMessageReader) parseHeader(line string) error {
 	return nil
 }
 
-func (r *AptMessageReader) parseField(line string) error {
+func (r *MessageReader) parseField(line string) error {
 	if line == "" {
 		return errors.New("empty message field")
 	}

@@ -18,23 +18,23 @@ import (
 	"io"
 )
 
-// AptMessageWriter supports writing Apt messages.
-type AptMessageWriter struct {
+// MessageWriter supports writing Apt messages.
+type MessageWriter struct {
 	writer io.Writer
 }
 
 // NewAptMessageWriter returns an AptMessageWriter.
-func NewAptMessageWriter(w io.Writer) *AptMessageWriter {
-	return &AptMessageWriter{writer: w}
+func NewAptMessageWriter(w io.Writer) *MessageWriter {
+	return &MessageWriter{writer: w}
 }
 
 // WriteMessage writes an AptMessage.
-func (w *AptMessageWriter) WriteMessage(m AptMessage) error {
+func (w *MessageWriter) WriteMessage(m Message) error {
 	return w.writeString(m.String())
 }
 
 // WriteString writes a raw string.
-func (w *AptMessageWriter) writeString(s string) error {
+func (w *MessageWriter) writeString(s string) error {
 	if _, err := w.writer.Write([]byte(s)); err != nil {
 		return err
 	}
@@ -42,31 +42,31 @@ func (w *AptMessageWriter) writeString(s string) error {
 }
 
 // SendCapabilities writes a 100 Capabilities message.
-func (w *AptMessageWriter) SendCapabilities() error {
+func (w *MessageWriter) SendCapabilities() error {
 	return w.WriteMessage(new100Message())
 }
 
 // Log writes a 101 Log message.
-func (w *AptMessageWriter) Log(msg string) error {
+func (w *MessageWriter) Log(msg string) error {
 	return w.WriteMessage(new101Message(msg))
 }
 
 // URIStart writes a 200 URI Start message.
-func (w *AptMessageWriter) URIStart(uri, size, lastModified string) error {
+func (w *MessageWriter) URIStart(uri, size, lastModified string) error {
 	return w.WriteMessage(new200Message(uri, size, lastModified))
 }
 
 // URIDone writes a 201 URI Done message.
-func (w *AptMessageWriter) URIDone(uri, size, lastModified, md5Hash, filename string, ims bool) error {
+func (w *MessageWriter) URIDone(uri, size, lastModified, md5Hash, filename string, ims bool) error {
 	return w.WriteMessage(new201Message(uri, size, lastModified, md5Hash, filename, ims))
 }
 
 // FailURI writes a 400 URI Failure message.
-func (w *AptMessageWriter) FailURI(uri, msg string) error {
+func (w *MessageWriter) FailURI(uri, msg string) error {
 	return w.WriteMessage(new400Message(uri, msg))
 }
 
 // Fail writes a 401 General Failure message.
-func (w *AptMessageWriter) Fail(msg string) error {
+func (w *MessageWriter) Fail(msg string) error {
 	return w.WriteMessage(new401Message(msg))
 }

@@ -20,15 +20,15 @@ import (
 	"strings"
 )
 
-// AptMessage represents a single RFC822 Apt message.
-type AptMessage struct {
+// Message represents a single RFC822 Apt message.
+type Message struct {
 	code        int
 	description string
 	fields      map[string][]string
 }
 
 // Get returns the first AptMessage Field for `key`, or "".
-func (m *AptMessage) Get(key string) string {
+func (m *Message) Get(key string) string {
 	if vals, ok := m.fields[key]; ok {
 		if len(vals) > 0 {
 			return vals[0]
@@ -37,7 +37,7 @@ func (m *AptMessage) Get(key string) string {
 	return ""
 }
 
-func (m *AptMessage) String() string {
+func (m *Message) String() string {
 	// Map iteration is unordered. For testing convenience, write alphabetical output.
 	sortedKeys := make([]string, len(m.fields))
 	i := 0
@@ -58,20 +58,20 @@ func (m *AptMessage) String() string {
 	return strings.Join(message, "\n")
 }
 
-func new100Message() AptMessage {
+func new100Message() Message {
 	fields := make(map[string][]string)
 	fields["Send-Config"] = []string{"true"}
 	fields["Version"] = []string{"1.0"}
-	return AptMessage{code: 100, description: "Capabilities", fields: fields}
+	return Message{code: 100, description: "Capabilities", fields: fields}
 }
 
-func new101Message(msg string) AptMessage {
+func new101Message(msg string) Message {
 	fields := make(map[string][]string)
 	fields["Message"] = []string{msg}
-	return AptMessage{code: 101, description: "Log", fields: fields}
+	return Message{code: 101, description: "Log", fields: fields}
 }
 
-func new200Message(uri, size, lastModified string) AptMessage {
+func new200Message(uri, size, lastModified string) Message {
 	fields := make(map[string][]string)
 	fields["URI"] = []string{uri}
 	fields["Size"] = []string{size}
@@ -79,10 +79,10 @@ func new200Message(uri, size, lastModified string) AptMessage {
 		fields["Last-Modified"] = []string{lastModified}
 	}
 	fields["Resume-Point"] = []string{"0"}
-	return AptMessage{code: 200, description: "URI Start", fields: fields}
+	return Message{code: 200, description: "URI Start", fields: fields}
 }
 
-func new201Message(uri, size, lastModified, md5Hash, filename string, imsHit bool) AptMessage {
+func new201Message(uri, size, lastModified, md5Hash, filename string, imsHit bool) Message {
 	fields := make(map[string][]string)
 	fields["URI"] = []string{uri}
 	fields["Last-Modified"] = []string{lastModified}
@@ -93,18 +93,18 @@ func new201Message(uri, size, lastModified, md5Hash, filename string, imsHit boo
 		fields["Size"] = []string{size}
 		fields["MD5-Hash"] = []string{md5Hash}
 	}
-	return AptMessage{code: 201, description: "URI Done", fields: fields}
+	return Message{code: 201, description: "URI Done", fields: fields}
 }
 
-func new400Message(uri, msg string) AptMessage {
+func new400Message(uri, msg string) Message {
 	fields := make(map[string][]string)
 	fields["URI"] = []string{uri}
 	fields["Message"] = []string{msg}
-	return AptMessage{code: 400, description: "URI Failure", fields: fields}
+	return Message{code: 400, description: "URI Failure", fields: fields}
 }
 
-func new401Message(msg string) AptMessage {
+func new401Message(msg string) Message {
 	fields := make(map[string][]string)
 	fields["Message"] = []string{msg}
-	return AptMessage{code: 401, description: "General Failure", fields: fields}
+	return Message{code: 401, description: "General Failure", fields: fields}
 }

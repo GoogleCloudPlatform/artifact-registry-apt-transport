@@ -34,8 +34,8 @@ const (
 )
 
 // NewAptMethod returns an AptMethod.
-func NewAptMethod(input *bufio.Reader, output io.Writer) *AptMethod {
-	return &AptMethod{
+func NewAptMethod(input *bufio.Reader, output io.Writer) *Method {
+	return &Method{
 		config: &aptMethodConfig{},
 		writer: NewAptMessageWriter(output),
 		reader: NewAptMessageReader(input),
@@ -55,10 +55,10 @@ type downloader interface {
 
 type downloaderImpl struct{}
 
-// AptMethod represents the method handler.
-type AptMethod struct {
-	reader *AptMessageReader
-	writer *AptMessageWriter
+// Method represents the method handler.
+type Method struct {
+	reader *MessageReader
+	writer *MessageWriter
 	config *aptMethodConfig
 	client httpClient
 	dl     downloader
@@ -69,7 +69,7 @@ type aptMethodConfig struct {
 }
 
 // Run runs the method.
-func (m *AptMethod) Run(ctx context.Context) {
+func (m *Method) Run(ctx context.Context) {
 	m.writer.SendCapabilities()
 	for {
 		select {
@@ -93,7 +93,7 @@ func (m *AptMethod) Run(ctx context.Context) {
 	}
 }
 
-func (m *AptMethod) initClient(ctx context.Context) error {
+func (m *Method) initClient(ctx context.Context) error {
 	if m.client != nil {
 		return nil
 	}
@@ -144,7 +144,7 @@ func (r downloaderImpl) download(body io.ReadCloser, filename string) (string, e
 	return fmt.Sprintf("%x", md5.Sum(data)), err
 }
 
-func (m *AptMethod) handleAcquire(ctx context.Context, msg *AptMessage) error {
+func (m *Method) handleAcquire(ctx context.Context, msg *Message) error {
 	uri := msg.Get("URI")
 	if uri == "" {
 		err := errors.New("no URI provided in Acquire message")
@@ -206,7 +206,7 @@ func (m *AptMethod) handleAcquire(ctx context.Context, msg *AptMessage) error {
 	return nil
 }
 
-func (m *AptMethod) handleConfigure(msg *AptMessage) {
+func (m *Method) handleConfigure(msg *Message) {
 	configs, ok := msg.fields["Config-Item"]
 	if !ok {
 		// Nothing to set.
