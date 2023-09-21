@@ -78,7 +78,7 @@ func (m fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		m.code = 200
 	}
 	if m.header == nil {
-		m.header = map[string][]string{"Content-Length": []string{"200"}, "Last-Modified": []string{"whenever"}}
+		m.header = map[string][]string{"Content-Length": {"200"}, "Last-Modified": {"whenever"}}
 	}
 	return &http.Response{StatusCode: m.code, Header: m.header}, nil
 }
@@ -114,13 +114,13 @@ func TestAptMethodRun(t *testing.T) {
 	writer.WriteMessage(AptMessage{
 		code:        601,
 		description: "Configuration",
-		fields:      map[string][]string{"Config-Item": []string{"Acquire::gar::Service-Account-Email=email@domain"}},
+		fields:      map[string][]string{"Config-Item": {"Acquire::gar::Service-Account-Email=email@domain"}},
 	})
 
 	writer.WriteMessage(AptMessage{
 		code:        600,
 		description: "URI Acquire",
-		fields:      map[string][]string{"URI": []string{"http://fake.uri"}, "Filename": []string{"/path/to/file"}},
+		fields:      map[string][]string{"URI": {"http://fake.uri"}, "Filename": {"/path/to/file"}},
 	})
 
 	msg, err = reader.ReadMessage(ctx)
@@ -181,7 +181,7 @@ func TestAptMethodRun404(t *testing.T) {
 	writer.WriteMessage(AptMessage{
 		code:        600,
 		description: "URI Acquire",
-		fields:      map[string][]string{"URI": []string{"http://fake.uri"}, "Filename": []string{"/path/to/file"}},
+		fields:      map[string][]string{"URI": {"http://fake.uri"}, "Filename": {"/path/to/file"}},
 	})
 
 	msg, err = reader.ReadMessage(ctx)
@@ -227,7 +227,7 @@ func TestAptMethodRun304(t *testing.T) {
 	writer.WriteMessage(AptMessage{
 		code:        600,
 		description: "URI Acquire",
-		fields:      map[string][]string{"URI": []string{"http://fake.uri"}, "Filename": []string{"/path/to/file"}},
+		fields:      map[string][]string{"URI": {"http://fake.uri"}, "Filename": {"/path/to/file"}},
 	})
 
 	msg, err = reader.ReadMessage(ctx)

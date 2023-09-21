@@ -28,17 +28,17 @@ func TestAptMessageGet(t *testing.T) {
 	}{
 		{
 			// Happy case.
-			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"key": []string{"val1", "val2"}}},
+			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"key": {"val1", "val2"}}},
 			"val1",
 		},
 		{
 			// Missing key.
-			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"some-other-key": []string{"val1", "val2"}}},
+			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"some-other-key": {"val1", "val2"}}},
 			"",
 		},
 		{
 			// Missing value.
-			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"key": []string{}}},
+			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"key": {}}},
 			"",
 		},
 	}
@@ -60,9 +60,9 @@ func TestAptWriterWriteMessage(t *testing.T) {
 				code:        123,
 				description: "Fake",
 				fields: map[string][]string{
-					"akey": []string{"val1", "val2"},
-					"zkey": []string{"val4"},
-					"Zkey": []string{"val3"},
+					"akey": {"val1", "val2"},
+					"zkey": {"val4"},
+					"Zkey": {"val3"},
 				},
 			},
 			// Capital letters before lowercase, then alphabetical.
@@ -73,7 +73,7 @@ func TestAptWriterWriteMessage(t *testing.T) {
 				code: 123,
 				// Missing description.
 				fields: map[string][]string{
-					"akey": []string{"val1"},
+					"akey": {"val1"},
 				},
 			},
 			"123 \nakey: val1\n\n",
@@ -83,7 +83,7 @@ func TestAptWriterWriteMessage(t *testing.T) {
 				// missing code.
 				description: "Fake",
 				fields: map[string][]string{
-					"akey": []string{"val1"},
+					"akey": {"val1"},
 				},
 			},
 			"0 Fake\nakey: val1\n\n",
@@ -102,7 +102,7 @@ func TestAptWriterWriteMessage(t *testing.T) {
 				description: "Fake",
 				fields: map[string][]string{
 					// Missing field value.
-					"akey": []string{},
+					"akey": {},
 				},
 			},
 			"123 Fake\n\n",
@@ -270,8 +270,8 @@ func TestAptReaderReadMessage(t *testing.T) {
 				code:        123,
 				description: "Fake Header",
 				fields: map[string][]string{
-					"Field1": []string{"val1", "val4"},
-					"Field2": []string{"val2", "val3"},
+					"Field1": {"val1", "val4"},
+					"Field2": {"val2", "val3"},
 				},
 			},
 		},
@@ -363,13 +363,13 @@ func TestAptReaderParseField(t *testing.T) {
 			// Test initial fields.
 			AptMessage{},
 			"Field1: val1",
-			map[string][]string{"Field1": []string{"val1"}},
+			map[string][]string{"Field1": {"val1"}},
 		},
 		{
 			// Test appending fields.
-			AptMessage{fields: map[string][]string{"Field1": []string{"val1"}}},
+			AptMessage{fields: map[string][]string{"Field1": {"val1"}}},
 			"Field1: val2",
-			map[string][]string{"Field1": []string{"val1", "val2"}},
+			map[string][]string{"Field1": {"val1", "val2"}},
 		},
 	}
 

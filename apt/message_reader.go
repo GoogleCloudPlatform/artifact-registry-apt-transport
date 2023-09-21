@@ -55,7 +55,7 @@ func (r *AptMessageReader) ReadMessage(ctx context.Context) (*AptMessage, error)
 		line = strings.TrimSpace(line)
 		if line == "" {
 			if r.message == nil {
-				return nil, errors.New("Empty message")
+				return nil, errors.New("empty message")
 			}
 
 			// Message is done, return and reset.
@@ -79,19 +79,19 @@ func (r *AptMessageReader) ReadMessage(ctx context.Context) (*AptMessage, error)
 
 func (r *AptMessageReader) parseHeader(line string) error {
 	if line == "" {
-		return errors.New("Empty message header")
+		return errors.New("empty message header")
 	}
 	if r.message.code != 0 || r.message.description != "" {
-		return errors.New("Double parsing header")
+		return errors.New("double parsing header")
 	}
 	line = strings.TrimSpace(line)
 	parts := strings.SplitN(line, " ", 2)
 	if len(parts) != 2 {
-		return fmt.Errorf("Malformed header %q, not enough parts", line)
+		return fmt.Errorf("malformed header %q, not enough parts", line)
 	}
 	code, err := strconv.Atoi(strings.TrimSpace(parts[0]))
 	if err != nil {
-		return fmt.Errorf("Malformed header %q, code is not an integer", line)
+		return fmt.Errorf("malformed header %q, code is not an integer", line)
 	}
 
 	r.message.code = code
@@ -101,12 +101,12 @@ func (r *AptMessageReader) parseHeader(line string) error {
 
 func (r *AptMessageReader) parseField(line string) error {
 	if line == "" {
-		return errors.New("Empty message field")
+		return errors.New("empty message field")
 	}
 	line = strings.TrimSpace(line)
 	parts := strings.SplitN(line, ":", 2)
 	if len(parts) < 2 {
-		return fmt.Errorf("Malformed field %q, not enough parts", line)
+		return fmt.Errorf("malformed field %q, not enough parts", line)
 	}
 	if r.message.fields == nil {
 		r.message.fields = make(map[string][]string)
@@ -114,7 +114,7 @@ func (r *AptMessageReader) parseField(line string) error {
 	key := strings.TrimSpace(parts[0])
 	value := strings.TrimSpace(parts[1])
 	if key == "" || value == "" {
-		return fmt.Errorf("Malformed field %q, empty key or value", line)
+		return fmt.Errorf("malformed field %q, empty key or value", line)
 	}
 
 	fieldlist := r.message.fields[key]

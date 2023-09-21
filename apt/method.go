@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -84,7 +83,7 @@ func (m *AptMethod) Run(ctx context.Context) {
 		}
 		switch msg.code {
 		case 600:
-			m.handleAcquire(msg)
+			m.handleAcquire(ctx, msg)
 		case 601:
 			m.handleConfigure(msg)
 		default:
@@ -94,22 +93,21 @@ func (m *AptMethod) Run(ctx context.Context) {
 	}
 }
 
-func (m *AptMethod) initClient() error {
+func (m *AptMethod) initClient(ctx context.Context) error {
 	if m.client != nil {
 		return nil
 	}
 
 	var ts oauth2.TokenSource
-	ctx := context.Background()
 	switch {
 	case m.config.serviceAccountJSON != "":
-		json, err := ioutil.ReadFile(m.config.serviceAccountJSON)
+		json, err := os.ReadFile(m.config.serviceAccountJSON)
 		if err != nil {
-			return fmt.Errorf("Failed to obtain creds: %v", err)
+			return fmt.Errorf("failed to read service account JSON file: %v", err)
 		}
 		creds, err := google.CredentialsFromJSON(ctx, json, cloudPlatformScope)
 		if err != nil {
-			return fmt.Errorf("Failed to obtain creds: %v", err)
+			return fmt.Errorf("failed to obtain creds from service account JSON: %v", err)
 		}
 		ts = creds.TokenSource
 	case m.config.serviceAccountEmail != "":
@@ -117,12 +115,12 @@ func (m *AptMethod) initClient() error {
 	default:
 		creds, err := google.FindDefaultCredentials(ctx)
 		if err != nil {
-			return fmt.Errorf("Failed to obtain creds: %v", err)
+			return fmt.Errorf("failed to obtain default creds: %v", err)
 		}
 		ts = creds.TokenSource
 	}
 	if ts == nil {
-		return errors.New("Failed to obtain creds")
+		return errors.New("failed to obtain creds")
 	}
 	m.client = oauth2.NewClient(ctx, ts)
 	return nil
@@ -132,7 +130,7 @@ func (m *AptMethod) initClient() error {
 // an MD5 hash of the downloaded file.
 func (r downloaderImpl) download(body io.ReadCloser, filename string) (string, error) {
 	defer body.Close()
-	data, err := ioutil.ReadAll(body)
+	data, err := io.ReadAll(body)
 	if err != nil {
 		return "", err
 	}
@@ -146,22 +144,22 @@ func (r downloaderImpl) download(body io.ReadCloser, filename string) (string, e
 	return fmt.Sprintf("%x", md5.Sum(data)), err
 }
 
-func (m *AptMethod) handleAcquire(msg *AptMessage) error {
+func (m *AptMethod) handleAcquire(ctx context.Context, msg *AptMessage) error {
 	uri := msg.Get("URI")
 	if uri == "" {
-		err := errors.New("No URI provided in Acquire message")
+		err := errors.New("no URI provided in Acquire message")
 		m.writer.Fail(err.Error())
 		return err
 	}
 	filename := msg.Get("Filename")
 	if filename == "" {
-		err := errors.New("No filename provided in Acquire message")
+		err := errors.New("no filename provided in Acquire message")
 		m.writer.FailURI(uri, err.Error())
 		return err
 	}
 	ifModifiedSince := msg.Get("Last-Modified")
 
-	if err := m.initClient(); err != nil {
+	if err := m.initClient(ctx); err != nil {
 		m.writer.FailURI(uri, err.Error())
 		return err
 	}
@@ -200,7 +198,7 @@ func (m *AptMethod) handleAcquire(msg *AptMessage) error {
 		m.writer.URIDone(uri, size, lastModified, "", filename, true)
 	default:
 		// All other codes including 404, 403, etc.
-		err := fmt.Errorf("Error downloading: code %v", resp.StatusCode)
+		err := fmt.Errorf("error downloading: code %v", resp.StatusCode)
 		m.writer.FailURI(uri, err.Error())
 		return err
 	}

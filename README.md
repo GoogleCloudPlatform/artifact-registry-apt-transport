@@ -1,0 +1,1 @@
+This repository contains plugin for the APT package tool which adds support for accessing authenticated Artifact Registry repositories.
