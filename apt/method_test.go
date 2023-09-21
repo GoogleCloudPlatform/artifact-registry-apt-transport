@@ -49,8 +49,8 @@ func TestHandleConfigure(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		method := &AptMethod{config: &aptMethodConfig{}}
-		msg := &AptMessage{
+		method := &Method{config: &aptMethodConfig{}}
+		msg := &Message{
 			code:        601,
 			description: "Configuration",
 			fields:      map[string][]string{"Config-Item": tt.configItems},
@@ -78,7 +78,7 @@ func (m fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		m.code = 200
 	}
 	if m.header == nil {
-		m.header = map[string][]string{"Content-Length": []string{"200"}, "Last-Modified": []string{"whenever"}}
+		m.header = map[string][]string{"Content-Length": {"200"}, "Last-Modified": {"whenever"}}
 	}
 	return &http.Response{StatusCode: m.code, Header: m.header}, nil
 }
@@ -101,7 +101,7 @@ func TestAptMethodRun(t *testing.T) {
 	ctx2, cancel := context.WithCancel(ctx)
 	go workMethod.Run(ctx2)
 
-	reader := AptMessageReader{reader: bufio.NewReader(stdoutreader)}
+	reader := MessageReader{reader: bufio.NewReader(stdoutreader)}
 	msg, err := reader.ReadMessage(ctx)
 	if err != nil {
 		t.Errorf("failed, %v", err)
@@ -110,17 +110,17 @@ func TestAptMethodRun(t *testing.T) {
 		t.Errorf("failed, didn't receive capabilities message")
 	}
 
-	writer := AptMessageWriter{writer: stdinwriter}
-	writer.WriteMessage(AptMessage{
+	writer := MessageWriter{writer: stdinwriter}
+	writer.WriteMessage(Message{
 		code:        601,
 		description: "Configuration",
-		fields:      map[string][]string{"Config-Item": []string{"Acquire::gar::Service-Account-Email=email@domain"}},
+		fields:      map[string][]string{"Config-Item": {"Acquire::gar::Service-Account-Email=email@domain"}},
 	})
 
-	writer.WriteMessage(AptMessage{
+	writer.WriteMessage(Message{
 		code:        600,
 		description: "URI Acquire",
-		fields:      map[string][]string{"URI": []string{"http://fake.uri"}, "Filename": []string{"/path/to/file"}},
+		fields:      map[string][]string{"URI": {"http://fake.uri"}, "Filename": {"/path/to/file"}},
 	})
 
 	msg, err = reader.ReadMessage(ctx)
@@ -168,7 +168,7 @@ func TestAptMethodRun404(t *testing.T) {
 	defer cancel()
 	go workMethod.Run(ctx2)
 
-	reader := AptMessageReader{reader: bufio.NewReader(stdoutreader)}
+	reader := MessageReader{reader: bufio.NewReader(stdoutreader)}
 	msg, err := reader.ReadMessage(ctx)
 	if err != nil {
 		t.Fatalf("failed, %v", err)
@@ -177,11 +177,11 @@ func TestAptMethodRun404(t *testing.T) {
 		t.Errorf("failed, didn't receive capabilities message")
 	}
 
-	writer := AptMessageWriter{writer: stdinwriter}
-	writer.WriteMessage(AptMessage{
+	writer := MessageWriter{writer: stdinwriter}
+	writer.WriteMessage(Message{
 		code:        600,
 		description: "URI Acquire",
-		fields:      map[string][]string{"URI": []string{"http://fake.uri"}, "Filename": []string{"/path/to/file"}},
+		fields:      map[string][]string{"URI": {"http://fake.uri"}, "Filename": {"/path/to/file"}},
 	})
 
 	msg, err = reader.ReadMessage(ctx)
@@ -214,7 +214,7 @@ func TestAptMethodRun304(t *testing.T) {
 	defer cancel()
 	go workMethod.Run(ctx2)
 
-	reader := AptMessageReader{reader: bufio.NewReader(stdoutreader)}
+	reader := MessageReader{reader: bufio.NewReader(stdoutreader)}
 	msg, err := reader.ReadMessage(ctx)
 	if err != nil {
 		t.Fatalf("failed, %v", err)
@@ -223,11 +223,11 @@ func TestAptMethodRun304(t *testing.T) {
 		t.Errorf("failed, didn't receive capabilities message")
 	}
 
-	writer := AptMessageWriter{writer: stdinwriter}
-	writer.WriteMessage(AptMessage{
+	writer := MessageWriter{writer: stdinwriter}
+	writer.WriteMessage(Message{
 		code:        600,
 		description: "URI Acquire",
-		fields:      map[string][]string{"URI": []string{"http://fake.uri"}, "Filename": []string{"/path/to/file"}},
+		fields:      map[string][]string{"URI": {"http://fake.uri"}, "Filename": {"/path/to/file"}},
 	})
 
 	msg, err = reader.ReadMessage(ctx)
@@ -260,7 +260,7 @@ func TestAptMethodRunFail(t *testing.T) {
 	defer cancel()
 	go workMethod.Run(ctx2)
 
-	reader := AptMessageReader{reader: bufio.NewReader(stdoutreader)}
+	reader := MessageReader{reader: bufio.NewReader(stdoutreader)}
 	msg, err := reader.ReadMessage(ctx)
 	if err != nil {
 		t.Fatalf("failed, %v", err)
@@ -269,8 +269,8 @@ func TestAptMethodRunFail(t *testing.T) {
 		t.Errorf("failed, didn't receive capabilities message")
 	}
 
-	writer := AptMessageWriter{writer: stdinwriter}
-	writer.WriteMessage(AptMessage{
+	writer := MessageWriter{writer: stdinwriter}
+	writer.WriteMessage(Message{
 		code:        700,
 		description: "Bogus method",
 	})

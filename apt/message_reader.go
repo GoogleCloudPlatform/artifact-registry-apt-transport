@@ -23,19 +23,19 @@ import (
 	"strings"
 )
 
-// AptMessageReader supports reading Apt messages.
-type AptMessageReader struct {
+// MessageReader supports reading Apt messages.
+type MessageReader struct {
 	reader  *bufio.Reader
-	message *AptMessage
+	message *Message
 }
 
 // NewAptMessageReader returns an AptMessageReader.
-func NewAptMessageReader(r *bufio.Reader) *AptMessageReader {
-	return &AptMessageReader{reader: r}
+func NewAptMessageReader(r *bufio.Reader) *MessageReader {
+	return &MessageReader{reader: r}
 }
 
 // ReadMessage reads lines from `reader` until a complete message is received.
-func (r *AptMessageReader) ReadMessage(ctx context.Context) (*AptMessage, error) {
+func (r *MessageReader) ReadMessage(ctx context.Context) (*Message, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -55,7 +55,7 @@ func (r *AptMessageReader) ReadMessage(ctx context.Context) (*AptMessage, error)
 		line = strings.TrimSpace(line)
 		if line == "" {
 			if r.message == nil {
-				return nil, errors.New("Empty message")
+				return nil, errors.New("empty message")
 			}
 
 			// Message is done, return and reset.
@@ -65,7 +65,7 @@ func (r *AptMessageReader) ReadMessage(ctx context.Context) (*AptMessage, error)
 		}
 
 		if r.message == nil {
-			r.message = &AptMessage{}
+			r.message = &Message{}
 			if err := r.parseHeader(line); err != nil {
 				return nil, err
 			}
@@ -77,21 +77,21 @@ func (r *AptMessageReader) ReadMessage(ctx context.Context) (*AptMessage, error)
 	}
 }
 
-func (r *AptMessageReader) parseHeader(line string) error {
+func (r *MessageReader) parseHeader(line string) error {
 	if line == "" {
-		return errors.New("Empty message header")
+		return errors.New("empty message header")
 	}
 	if r.message.code != 0 || r.message.description != "" {
-		return errors.New("Double parsing header")
+		return errors.New("double parsing header")
 	}
 	line = strings.TrimSpace(line)
 	parts := strings.SplitN(line, " ", 2)
 	if len(parts) != 2 {
-		return fmt.Errorf("Malformed header %q, not enough parts", line)
+		return fmt.Errorf("malformed header %q, not enough parts", line)
 	}
 	code, err := strconv.Atoi(strings.TrimSpace(parts[0]))
 	if err != nil {
-		return fmt.Errorf("Malformed header %q, code is not an integer", line)
+		return fmt.Errorf("malformed header %q, code is not an integer", line)
 	}
 
 	r.message.code = code
@@ -99,14 +99,14 @@ func (r *AptMessageReader) parseHeader(line string) error {
 	return nil
 }
 
-func (r *AptMessageReader) parseField(line string) error {
+func (r *MessageReader) parseField(line string) error {
 	if line == "" {
-		return errors.New("Empty message field")
+		return errors.New("empty message field")
 	}
 	line = strings.TrimSpace(line)
 	parts := strings.SplitN(line, ":", 2)
 	if len(parts) < 2 {
-		return fmt.Errorf("Malformed field %q, not enough parts", line)
+		return fmt.Errorf("malformed field %q, not enough parts", line)
 	}
 	if r.message.fields == nil {
 		r.message.fields = make(map[string][]string)
@@ -114,7 +114,7 @@ func (r *AptMessageReader) parseField(line string) error {
 	key := strings.TrimSpace(parts[0])
 	value := strings.TrimSpace(parts[1])
 	if key == "" || value == "" {
-		return fmt.Errorf("Malformed field %q, empty key or value", line)
+		return fmt.Errorf("malformed field %q, empty key or value", line)
 	}
 
 	fieldlist := r.message.fields[key]

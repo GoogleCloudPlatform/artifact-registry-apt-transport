@@ -23,22 +23,22 @@ import (
 
 func TestAptMessageGet(t *testing.T) {
 	var tests = []struct {
-		message  AptMessage
+		message  Message
 		expected string
 	}{
 		{
 			// Happy case.
-			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"key": []string{"val1", "val2"}}},
+			Message{code: 123, description: "Fake", fields: map[string][]string{"key": {"val1", "val2"}}},
 			"val1",
 		},
 		{
 			// Missing key.
-			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"some-other-key": []string{"val1", "val2"}}},
+			Message{code: 123, description: "Fake", fields: map[string][]string{"some-other-key": {"val1", "val2"}}},
 			"",
 		},
 		{
 			// Missing value.
-			AptMessage{code: 123, description: "Fake", fields: map[string][]string{"key": []string{}}},
+			Message{code: 123, description: "Fake", fields: map[string][]string{"key": {}}},
 			"",
 		},
 	}
@@ -52,44 +52,44 @@ func TestAptMessageGet(t *testing.T) {
 
 func TestAptWriterWriteMessage(t *testing.T) {
 	var tests = []struct {
-		message  AptMessage
+		message  Message
 		expected string
 	}{
 		{
-			AptMessage{
+			Message{
 				code:        123,
 				description: "Fake",
 				fields: map[string][]string{
-					"akey": []string{"val1", "val2"},
-					"zkey": []string{"val4"},
-					"Zkey": []string{"val3"},
+					"akey": {"val1", "val2"},
+					"zkey": {"val4"},
+					"Zkey": {"val3"},
 				},
 			},
 			// Capital letters before lowercase, then alphabetical.
 			"123 Fake\nZkey: val3\nakey: val1\nakey: val2\nzkey: val4\n\n",
 		},
 		{
-			AptMessage{
+			Message{
 				code: 123,
 				// Missing description.
 				fields: map[string][]string{
-					"akey": []string{"val1"},
+					"akey": {"val1"},
 				},
 			},
 			"123 \nakey: val1\n\n",
 		},
 		{
-			AptMessage{
+			Message{
 				// missing code.
 				description: "Fake",
 				fields: map[string][]string{
-					"akey": []string{"val1"},
+					"akey": {"val1"},
 				},
 			},
 			"0 Fake\nakey: val1\n\n",
 		},
 		{
-			AptMessage{
+			Message{
 				code:        123,
 				description: "Fake",
 				// missing fields.
@@ -97,12 +97,12 @@ func TestAptWriterWriteMessage(t *testing.T) {
 			"123 Fake\n\n",
 		},
 		{
-			AptMessage{
+			Message{
 				code:        123,
 				description: "Fake",
 				fields: map[string][]string{
 					// Missing field value.
-					"akey": []string{},
+					"akey": {},
 				},
 			},
 			"123 Fake\n\n",
@@ -262,16 +262,16 @@ func compareFields(first, second map[string][]string) bool {
 func TestAptReaderReadMessage(t *testing.T) {
 	var tests = []struct {
 		msg      string
-		expected AptMessage
+		expected Message
 	}{
 		{
 			"123 Fake Header\nField1: val1\nField2: val2\nField2: val3\nField1: val4\n\n",
-			AptMessage{
+			Message{
 				code:        123,
 				description: "Fake Header",
 				fields: map[string][]string{
-					"Field1": []string{"val1", "val4"},
-					"Field2": []string{"val2", "val3"},
+					"Field1": {"val1", "val4"},
+					"Field2": {"val2", "val3"},
 				},
 			},
 		},
@@ -295,19 +295,19 @@ func TestAptReaderReadMessage(t *testing.T) {
 
 func TestAptReaderParseHeader(t *testing.T) {
 	var tests = []struct {
-		message  AptMessage
+		message  Message
 		header   string
-		expected AptMessage
+		expected Message
 	}{
 		{
-			AptMessage{},
+			Message{},
 			"123 Fake Code",
-			AptMessage{code: 123, description: "Fake Code"},
+			Message{code: 123, description: "Fake Code"},
 		},
 	}
 
 	for _, tt := range tests {
-		reader := AptMessageReader{message: &AptMessage{}}
+		reader := MessageReader{message: &Message{}}
 		if err := reader.parseHeader(tt.header); err != nil {
 			t.Errorf("failed, %v", err)
 		}
@@ -320,33 +320,33 @@ func TestAptReaderParseHeader(t *testing.T) {
 
 func TestAptReaderParseHeaderFail(t *testing.T) {
 	var tests = []struct {
-		message AptMessage
+		message Message
 		header  string
 	}{
 		{
-			AptMessage{},
+			Message{},
 			"123FakeCode", // Invalid format.
 		},
 		{
-			AptMessage{},
+			Message{},
 			"Xxx Fake Code", // Invalid format.
 		},
 		{
-			AptMessage{},
+			Message{},
 			"", // Empty header.
 		},
 		{
-			AptMessage{code: 123},
+			Message{code: 123},
 			"600 URI Acquire", // Valid header, existing message.
 		},
 		{
-			AptMessage{description: "blah"},
+			Message{description: "blah"},
 			"600 URI Acquire", // Valid header, existing message.
 		},
 	}
 
 	for idx, tt := range tests {
-		reader := AptMessageReader{message: &tt.message}
+		reader := MessageReader{message: &tt.message}
 		if err := reader.parseHeader(tt.header); err == nil {
 			t.Errorf("validation failed test %d", idx)
 		}
@@ -355,26 +355,26 @@ func TestAptReaderParseHeaderFail(t *testing.T) {
 
 func TestAptReaderParseField(t *testing.T) {
 	var tests = []struct {
-		message  AptMessage
+		message  Message
 		field    string
 		expected map[string][]string
 	}{
 		{
 			// Test initial fields.
-			AptMessage{},
+			Message{},
 			"Field1: val1",
-			map[string][]string{"Field1": []string{"val1"}},
+			map[string][]string{"Field1": {"val1"}},
 		},
 		{
 			// Test appending fields.
-			AptMessage{fields: map[string][]string{"Field1": []string{"val1"}}},
+			Message{fields: map[string][]string{"Field1": {"val1"}}},
 			"Field1: val2",
-			map[string][]string{"Field1": []string{"val1", "val2"}},
+			map[string][]string{"Field1": {"val1", "val2"}},
 		},
 	}
 
 	for _, tt := range tests {
-		reader := AptMessageReader{message: &tt.message}
+		reader := MessageReader{message: &tt.message}
 		if err := reader.parseField(tt.field); err != nil {
 			t.Errorf("failed, %v", err)
 		}
@@ -403,7 +403,7 @@ func TestAptReaderParseFieldFail(t *testing.T) {
 	}
 
 	for idx, tt := range tests {
-		reader := AptMessageReader{message: &AptMessage{}}
+		reader := MessageReader{message: &Message{}}
 		if err := reader.parseField(tt.field); err == nil {
 			t.Errorf("validation failed test %d", idx)
 		}
