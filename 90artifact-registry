@@ -9,4 +9,9 @@ Acquire::gar {
     # Use Service-Account-Email to specify a service account to use on Google
     # Compute Engine.
     #Service-Account-Email "my-service-account@some-domain.com";
+    #
+    # Use Access-Token-ENV to specify an environment variable to use as an
+    # access token. This is useful for CI/CD systems that provide an access
+    # token as an environment variable.
+    #Access-Token-ENV "CLOUDSDK_AUTH_ACCESS_TOKEN"
 };
