@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"strings"
 
@@ -66,20 +67,25 @@ type Method struct {
 
 type aptMethodConfig struct {
 	serviceAccountJSON, serviceAccountEmail string
+	debug                                   bool
 }
 
 // Run runs the method.
-func (m *Method) Run(ctx context.Context) {
+func (m *Method) Run(ctx context.Context) error {
 	m.writer.SendCapabilities()
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		default:
 		}
 		msg, err := m.reader.ReadMessage(ctx)
-		if err != nil {
+		if err == ErrEmptyMessage {
 			continue
+		} else if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return err
 		}
 		switch msg.code {
 		case 600:
@@ -87,10 +93,12 @@ func (m *Method) Run(ctx context.Context) {
 		case 601:
 			m.handleConfigure(msg)
 		default:
-			// TODO: now write a test for this.
-			m.writer.Fail(fmt.Sprintf("Unsupported message code %d received from apt", msg.code))
+			if m.config.debug {
+				fmt.Fprintf(os.Stderr, "Unsupported message code %d received from apt", msg.code)
+			}
 		}
 	}
+	return nil
 }
 
 func (m *Method) initClient(ctx context.Context) error {
@@ -173,7 +181,21 @@ func (m *Method) handleAcquire(ctx context.Context, msg *Message) error {
 		// TODO: validate this string is in RFC1123Z format.
 		req.Header.Add("If-Modified-Since", ifModifiedSince)
 	}
+
+	if m.config.debug {
+		if reqDump, dumpErr := httputil.DumpRequest(req, true); dumpErr == nil {
+			fmt.Fprint(os.Stderr, string(reqDump))
+		}
+	}
+
 	resp, err := m.client.Do(req)
+
+	if m.config.debug && resp != nil {
+		if respDump, dumpErr := httputil.DumpResponse(resp, false); dumpErr == nil {
+			fmt.Fprint(os.Stderr, string(respDump))
+		}
+	}
+
 	if err != nil {
 		m.writer.FailURI(uri, err.Error())
 		return err
@@ -213,21 +235,20 @@ func (m *Method) handleConfigure(msg *Message) {
 		return
 	}
 	for _, configItem := range configs {
-		if strings.Contains(configItem, "Acquire::gar::Service-Account-JSON") {
-			parts := strings.SplitN(configItem, "=", 2)
-			if len(parts) != 2 {
-				// TODO: log this?
-				return
-			}
-			m.config.serviceAccountJSON = strings.TrimSpace(parts[1])
+		parts := strings.SplitN(configItem, "=", 2)
+		if len(parts) != 2 {
+			// TODO: log this?
+			return
 		}
-		if strings.Contains(configItem, "Acquire::gar::Service-Account-Email") {
-			parts := strings.SplitN(configItem, "=", 2)
-			if len(parts) != 2 {
-				// TODO: log this?
-				return
-			}
+		switch parts[0] {
+		case "Acquire::gar::Service-Account-JSON":
+			m.config.serviceAccountJSON = strings.TrimSpace(parts[1])
+		case "Acquire::gar::Service-Account-Email":
 			m.config.serviceAccountEmail = strings.TrimSpace(parts[1])
+		case "Debug::Acquire::gar":
+			if strings.TrimSpace(parts[1]) == "1" {
+				m.config.debug = true
+			}
 		}
 	}
 	// Enforce the precedence of these two options.
