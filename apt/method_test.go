@@ -19,6 +19,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -316,6 +317,9 @@ func TestAptMethodRunFail(t *testing.T) {
 	runErr := <-errChan
 	if runErr == nil {
 		t.Fatalf("failed, expected non-nil runErr (empty key)")
+	}
+	if !strings.Contains(runErr.Error(), "malformed") {
+		t.Fatalf("failed, expected runErr to contain 'malformed'")
 	}
 
 	for _, p := range []io.Closer{stdinreader, stdinwriter, stdoutreader, stdoutwriter} {
