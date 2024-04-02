@@ -17,8 +17,8 @@ package main
 import (
 	"bufio"
 	"context"
-	"os"
 	"fmt"
+	"os"
 
 	"github.com/GoogleCloudPlatform/artifact-registry-apt-transport/apt"
 )

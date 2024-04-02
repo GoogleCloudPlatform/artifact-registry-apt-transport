@@ -52,6 +52,30 @@ func TestHandleConfigure(t *testing.T) {
 			},
 			aptMethodConfig{debug: true},
 		},
+		{
+			[]string{
+				"Debug::Acquire::gar=enable",
+			},
+			aptMethodConfig{debug: true},
+		},
+		{
+			[]string{
+				"Debug::Acquire::gar=10",
+			},
+			aptMethodConfig{debug: false},
+		},
+		{
+			[]string{
+				"Debug::Acquire::gar=0",
+			},
+			aptMethodConfig{debug: false},
+		},
+		{
+			[]string{
+				"Debug::Acquire::gar=-1",
+			},
+			aptMethodConfig{debug: false},
+		},
 	}
 
 	for _, tt := range tests {

@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"strconv"
 	"strings"
 
 	"golang.org/x/oauth2"
@@ -228,6 +229,27 @@ func (m *Method) handleAcquire(ctx context.Context, msg *Message) error {
 	return nil
 }
 
+// Ported from apt's `StringToBool` function
+// https://salsa.debian.org/apt-team/apt/-/blob/a0a76c2e20c1ddefd76a4a539a9350b96d66006e/apt-pkg/contrib/strutl.cc#L824
+func stringToBool(s string) bool {
+	if i, err := strconv.Atoi(s); err == nil {
+		if i == 1 {
+			return true
+		}
+		return false
+	}
+
+	sl := strings.ToLower(s)
+	trueStrs := []string{"yes", "true", "with", "on", "enable"}
+	for _, trueStr := range trueStrs {
+		if sl == trueStr {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (m *Method) handleConfigure(msg *Message) {
 	configs, ok := msg.fields["Config-Item"]
 	if !ok {
@@ -246,9 +268,7 @@ func (m *Method) handleConfigure(msg *Message) {
 		case "Acquire::gar::Service-Account-Email":
 			m.config.serviceAccountEmail = strings.TrimSpace(parts[1])
 		case "Debug::Acquire::gar":
-			if strings.TrimSpace(parts[1]) == "1" {
-				m.config.debug = true
-			}
+			m.config.debug = stringToBool(strings.TrimSpace(parts[1]))
 		}
 	}
 	// Enforce the precedence of these two options.
