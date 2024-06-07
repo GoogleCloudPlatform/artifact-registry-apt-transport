@@ -94,12 +94,10 @@ func (m *Method) Run(ctx context.Context) error {
 		case 601:
 			m.handleConfigure(msg)
 		default:
-			if m.config.debug {
-				fmt.Fprintf(os.Stderr, "Unsupported message code %d received from apt", msg.code)
-			}
+			// TODO(hopkiw): now write a test for this.
+			m.writer.Fail(fmt.Sprintf("Unsupported message code %d received from apt", msg.code))
 		}
 	}
-	return nil
 }
 
 func (m *Method) initClient(ctx context.Context) error {
@@ -179,13 +177,13 @@ func (m *Method) handleAcquire(ctx context.Context, msg *Message) error {
 		return err
 	}
 	if ifModifiedSince != "" {
-		// TODO: validate this string is in RFC1123Z format.
+		// TODO(hopkiw): validate this string is in RFC1123Z format.
 		req.Header.Add("If-Modified-Since", ifModifiedSince)
 	}
 
 	if m.config.debug {
 		if reqDump, dumpErr := httputil.DumpRequest(req, true); dumpErr == nil {
-			fmt.Fprint(os.Stderr, string(reqDump))
+			m.writer.Log(string(reqDump))
 		}
 	}
 
@@ -193,7 +191,7 @@ func (m *Method) handleAcquire(ctx context.Context, msg *Message) error {
 
 	if m.config.debug && resp != nil {
 		if respDump, dumpErr := httputil.DumpResponse(resp, false); dumpErr == nil {
-			fmt.Fprint(os.Stderr, string(respDump))
+			m.writer.Log(string(respDump))
 		}
 	}
 
@@ -259,7 +257,7 @@ func (m *Method) handleConfigure(msg *Message) {
 	for _, configItem := range configs {
 		parts := strings.SplitN(configItem, "=", 2)
 		if len(parts) != 2 {
-			// TODO: log this?
+			// TODO(hopkiw): log this?
 			return
 		}
 		switch parts[0] {
