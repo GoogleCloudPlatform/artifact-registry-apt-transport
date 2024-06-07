@@ -17,6 +17,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/GoogleCloudPlatform/artifact-registry-apt-transport/apt"
@@ -24,5 +25,9 @@ import (
 
 func main() {
 	apt := apt.NewAptMethod(bufio.NewReader(os.Stdin), os.Stdout)
-	apt.Run(context.Background())
+	err := apt.Run(context.Background())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
+		os.Exit(100)
+	}
 }

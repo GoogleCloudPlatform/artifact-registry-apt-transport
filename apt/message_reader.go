@@ -23,6 +23,8 @@ import (
 	"strings"
 )
 
+var errEmptyMessage = errors.New("empty message")
+
 // MessageReader supports reading Apt messages.
 type MessageReader struct {
 	reader  *bufio.Reader
@@ -44,18 +46,13 @@ func (r *MessageReader) ReadMessage(ctx context.Context) (*Message, error) {
 		}
 		line, err := r.reader.ReadString('\n')
 		if err != nil {
-			/*
-				if err == io.EOF || err == io.ErrClosedPipe {
-					// TODO: what to return in this case?
-				}
-			*/
 			return nil, err
 		}
 
 		line = strings.TrimSpace(line)
 		if line == "" {
 			if r.message == nil {
-				return nil, errors.New("empty message")
+				return nil, errEmptyMessage
 			}
 
 			// Message is done, return and reset.

@@ -19,6 +19,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -45,6 +46,36 @@ func TestHandleConfigure(t *testing.T) {
 				"some::other::config=value",
 			},
 			aptMethodConfig{},
+		},
+		{
+			[]string{
+				"Debug::Acquire::gar=1",
+			},
+			aptMethodConfig{debug: true},
+		},
+		{
+			[]string{
+				"Debug::Acquire::gar=enable",
+			},
+			aptMethodConfig{debug: true},
+		},
+		{
+			[]string{
+				"Debug::Acquire::gar=10",
+			},
+			aptMethodConfig{debug: false},
+		},
+		{
+			[]string{
+				"Debug::Acquire::gar=0",
+			},
+			aptMethodConfig{debug: false},
+		},
+		{
+			[]string{
+				"Debug::Acquire::gar=-1",
+			},
+			aptMethodConfig{debug: false},
 		},
 	}
 
@@ -258,7 +289,10 @@ func TestAptMethodRunFail(t *testing.T) {
 	ctx := context.Background()
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go workMethod.Run(ctx2)
+	errChan := make(chan error)
+	go func() {
+		errChan <- workMethod.Run(ctx2)
+	}()
 
 	reader := MessageReader{reader: bufio.NewReader(stdoutreader)}
 	msg, err := reader.ReadMessage(ctx)
@@ -272,17 +306,21 @@ func TestAptMethodRunFail(t *testing.T) {
 	writer := MessageWriter{writer: stdinwriter}
 	writer.WriteMessage(Message{
 		code:        700,
-		description: "Bogus method",
+		description: "Malformed message",
+		fields:      map[string][]string{"": {"foo"}},
 	})
 
-	msg, err = reader.ReadMessage(ctx)
-	if err != nil {
-		t.Fatalf("failed, %v", err)
+	// If we receive a malformed message from `apt`, we immediately bail
+	// without sending an error response. Unlike the other tests, there is no
+	// protocol message to read here, but we can assert on the return value of
+	// `Run`.
+	runErr := <-errChan
+	if runErr == nil {
+		t.Fatalf("failed, expected non-nil runErr (empty key)")
 	}
-	if msg.code != 401 || msg.description != "General Failure" || msg.Get("Message") == "" {
-		t.Errorf("failed, didn't receive general failure message. msg is %q", msg)
+	if !strings.Contains(runErr.Error(), "malformed") {
+		t.Fatalf("failed, expected runErr to contain 'malformed'")
 	}
-	cancel()
 
 	for _, p := range []io.Closer{stdinreader, stdinwriter, stdoutreader, stdoutwriter} {
 		if err := p.Close(); err != nil {

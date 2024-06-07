@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"os"
+	"strconv"
 	"strings"
 
 	"golang.org/x/oauth2"
@@ -66,20 +68,25 @@ type Method struct {
 
 type aptMethodConfig struct {
 	serviceAccountJSON, serviceAccountEmail string
+	debug                                   bool
 }
 
 // Run runs the method.
-func (m *Method) Run(ctx context.Context) {
+func (m *Method) Run(ctx context.Context) error {
 	m.writer.SendCapabilities()
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		default:
 		}
 		msg, err := m.reader.ReadMessage(ctx)
-		if err != nil {
+		if errors.Is(err, errEmptyMessage) {
 			continue
+		} else if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			return err
 		}
 		switch msg.code {
 		case 600:
@@ -87,7 +94,7 @@ func (m *Method) Run(ctx context.Context) {
 		case 601:
 			m.handleConfigure(msg)
 		default:
-			// TODO: now write a test for this.
+			// TODO(hopkiw): now write a test for this.
 			m.writer.Fail(fmt.Sprintf("Unsupported message code %d received from apt", msg.code))
 		}
 	}
@@ -170,10 +177,24 @@ func (m *Method) handleAcquire(ctx context.Context, msg *Message) error {
 		return err
 	}
 	if ifModifiedSince != "" {
-		// TODO: validate this string is in RFC1123Z format.
+		// TODO(hopkiw): validate this string is in RFC1123Z format.
 		req.Header.Add("If-Modified-Since", ifModifiedSince)
 	}
+
+	if m.config.debug {
+		if reqDump, dumpErr := httputil.DumpRequest(req, true); dumpErr == nil {
+			m.writer.Log(string(reqDump))
+		}
+	}
+
 	resp, err := m.client.Do(req)
+
+	if m.config.debug && resp != nil {
+		if respDump, dumpErr := httputil.DumpResponse(resp, false); dumpErr == nil {
+			m.writer.Log(string(respDump))
+		}
+	}
+
 	if err != nil {
 		m.writer.FailURI(uri, err.Error())
 		return err
@@ -206,6 +227,27 @@ func (m *Method) handleAcquire(ctx context.Context, msg *Message) error {
 	return nil
 }
 
+// Ported from apt's `StringToBool` function
+// https://salsa.debian.org/apt-team/apt/-/blob/a0a76c2e20c1ddefd76a4a539a9350b96d66006e/apt-pkg/contrib/strutl.cc#L824
+func stringToBool(s string) bool {
+	if i, err := strconv.Atoi(s); err == nil {
+		if i == 1 {
+			return true
+		}
+		return false
+	}
+
+	sl := strings.ToLower(s)
+	trueStrs := []string{"yes", "true", "with", "on", "enable"}
+	for _, trueStr := range trueStrs {
+		if sl == trueStr {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (m *Method) handleConfigure(msg *Message) {
 	configs, ok := msg.fields["Config-Item"]
 	if !ok {
@@ -213,21 +255,18 @@ func (m *Method) handleConfigure(msg *Message) {
 		return
 	}
 	for _, configItem := range configs {
-		if strings.Contains(configItem, "Acquire::gar::Service-Account-JSON") {
-			parts := strings.SplitN(configItem, "=", 2)
-			if len(parts) != 2 {
-				// TODO: log this?
-				return
-			}
-			m.config.serviceAccountJSON = strings.TrimSpace(parts[1])
+		parts := strings.SplitN(configItem, "=", 2)
+		if len(parts) != 2 {
+			m.writer.Log(fmt.Sprintf("malformed config item: %v", configItem))
+			return
 		}
-		if strings.Contains(configItem, "Acquire::gar::Service-Account-Email") {
-			parts := strings.SplitN(configItem, "=", 2)
-			if len(parts) != 2 {
-				// TODO: log this?
-				return
-			}
+		switch parts[0] {
+		case "Acquire::gar::Service-Account-JSON":
+			m.config.serviceAccountJSON = strings.TrimSpace(parts[1])
+		case "Acquire::gar::Service-Account-Email":
 			m.config.serviceAccountEmail = strings.TrimSpace(parts[1])
+		case "Debug::Acquire::gar":
+			m.config.debug = stringToBool(strings.TrimSpace(parts[1]))
 		}
 	}
 	// Enforce the precedence of these two options.
