@@ -23,7 +23,7 @@ import (
 	"strings"
 )
 
-var ErrEmptyMessage = errors.New("empty message")
+var errEmptyMessage = errors.New("empty message")
 
 // MessageReader supports reading Apt messages.
 type MessageReader struct {
@@ -52,7 +52,7 @@ func (r *MessageReader) ReadMessage(ctx context.Context) (*Message, error) {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			if r.message == nil {
-				return nil, ErrEmptyMessage
+				return nil, errEmptyMessage
 			}
 
 			// Message is done, return and reset.

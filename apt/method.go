@@ -81,7 +81,7 @@ func (m *Method) Run(ctx context.Context) error {
 		default:
 		}
 		msg, err := m.reader.ReadMessage(ctx)
-		if err == ErrEmptyMessage {
+		if err == errEmptyMessage {
 			continue
 		} else if err == io.EOF {
 			return nil
