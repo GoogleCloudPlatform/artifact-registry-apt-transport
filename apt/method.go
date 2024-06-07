@@ -81,9 +81,9 @@ func (m *Method) Run(ctx context.Context) error {
 		default:
 		}
 		msg, err := m.reader.ReadMessage(ctx)
-		if err == errEmptyMessage {
+		if errors.Is(err, errEmptyMessage) {
 			continue
-		} else if err == io.EOF {
+		} else if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			return err
@@ -257,7 +257,7 @@ func (m *Method) handleConfigure(msg *Message) {
 	for _, configItem := range configs {
 		parts := strings.SplitN(configItem, "=", 2)
 		if len(parts) != 2 {
-			// TODO(hopkiw): log this?
+			m.writer.Log(fmt.Sprintf("malformed config item: %v", configItem))
 			return
 		}
 		switch parts[0] {
