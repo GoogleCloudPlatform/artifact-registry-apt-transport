@@ -120,7 +120,7 @@ func (m *Method) initClient(ctx context.Context) error {
 	case m.config.serviceAccountEmail != "":
 		ts = google.ComputeTokenSource(m.config.serviceAccountEmail)
 	default:
-		creds, err := google.FindDefaultCredentials(ctx)
+		creds, err := google.FindDefaultCredentials(ctx, cloudPlatformScope)
 		if err != nil {
 			return fmt.Errorf("failed to obtain default creds: %v", err)
 		}
