@@ -1,5 +1,7 @@
 module github.com/GoogleCloudPlatform/artifact-registry-apt-transport
 
-go 1.16
+go 1.23
 
-require golang.org/x/oauth2 v0.0.0-20210220000619-9bb904979d93
+require golang.org/x/oauth2 v0.23.0
+
+require cloud.google.com/go/compute/metadata v0.3.0 // indirect
