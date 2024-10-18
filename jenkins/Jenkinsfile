@@ -11,7 +11,7 @@ String projectRepo = "artifact-registry-apt-transport"
 
 podTemplate(
   cloud: "kubernetes-build-cicd-jenkins-agent",
-  yaml: readTrusted('podTemplate.yaml'),
+  yaml: readTrusted('jenkins/podTemplate.yaml'),
   yamlMergeStrategy: merge()
 ) {
 
