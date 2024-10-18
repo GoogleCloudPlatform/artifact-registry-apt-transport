@@ -51,4 +51,4 @@ spec:
   - emptyDir:
       medium: ""
     name: "homedir"
-  serviceAccountName: agent
+  serviceAccountName: build-cicd
