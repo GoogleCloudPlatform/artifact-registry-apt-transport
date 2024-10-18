@@ -1,0 +1,54 @@
+spec:
+  containers:
+  - name: "jnlp"
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+      runAsUser: 1000
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: True
+      privileged: false
+    image: "us-east4-docker.pkg.dev/sym-prod-mr-tools-01/jenkins-docker-us-east4/default-jenkins-agent:latest-jdk17"
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "0.5"
+      limits:
+        memory: "1Gi"
+    volumeMounts:
+      - mountPath: "/tmp"
+        name: "tmpdir"
+      - mountPath: "/home/jenkins"
+        name: "homedir"
+  - name: "ubuntu"
+    image: "us-east4-docker.pkg.dev/sym-prod-mr-tools-01/base-docker-us-east4/ubuntu:noble"
+    imagePullPolicy: Always
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+      runAsUser: 1000
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: True
+      privileged: false
+    resources:
+      requests:
+        memory: 2Gi
+        cpu: 1
+      limits:
+        memory: 4Gi
+    command: [sleep]
+    args: [99d]
+    volumeMounts:
+      - mountPath: "/tmp"
+        name: "tmpdir"
+      - mountPath: "/home/jenkins"
+        name: "homedir"
+  restartPolicy: Never
+  volumes:
+  - emptyDir:
+      medium: ""
+    name: "tmpdir"
+  - emptyDir:
+      medium: ""
+    name: "homedir"
+  serviceAccountName: agent

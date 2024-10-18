@@ -1,0 +1,36 @@
+@Library(['sym-pipeline@main']) _
+
+import com.symphony.cicd.SymphonyCICDUtils
+
+def cicdUtils = new SymphonyCICDUtils()
+def isPullRequest = cicdUtils.isPullRequest()
+
+String projectOrg = "SymphonyOSF"
+String projectRepo = "artifact-registry-apt-transport"
+
+
+podTemplate(
+  cloud: "kubernetes-build-cicd-jenkins-agent",
+  yaml: readTrusted('podTemplate.yaml'),
+  yamlMergeStrategy: merge()
+) {
+
+node(POD_LABEL) {
+    stage("setup"){
+        sh "env"
+    }
+    stage("checkout") {        
+        gitHash = gitCheckout()
+        echo "Git hash: ${gitHash}"
+    }
+    stage("build") {
+        container("ubuntu") {
+            echo "Hello from Ubuntu"
+        }
+    }
+}}
+
+def addArtifactLinkToDescription(name, url) {
+  String artifactLink = "<a href='${url}'>${name}</a><br>"
+  currentBuild.description = currentBuild.description + artifactLink
+}
