@@ -38,6 +38,9 @@ spec:
         memory: 4Gi
     command: [sleep]
     args: [99d]
+    envFrom:
+      - configMapRef:
+          name: env
     volumeMounts:
       - mountPath: "/tmp"
         name: "tmpdir"
