@@ -21,7 +21,8 @@ spec:
       - mountPath: "/home/jenkins"
         name: "homedir"
   - name: "ubuntu"
-    image: "us-east4-docker.pkg.dev/sym-prod-mr-tools-01/jenkins-docker-us-east4/ubuntu:noble.Production-9-f0b0729"
+    # image: "us-east4-docker.pkg.dev/sym-prod-mr-tools-01/jenkins-docker-us-east4/ubuntu:noble.Production-9-f0b0729"
+    image: "us-east4-docker.pkg.dev/sym-prod-mr-tools-01/jenkins-docker-us-east4/ubuntu:noble.Production-11-e0817aa"
     imagePullPolicy: Always
     securityContext:
       seccompProfile:

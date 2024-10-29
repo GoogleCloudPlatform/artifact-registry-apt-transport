@@ -8,7 +8,6 @@ def isPullRequest = cicdUtils.isPullRequest()
 String projectOrg = "SymphonyOSF"
 String projectRepo = "artifact-registry-apt-transport"
 
-
 podTemplate(
   cloud: "kubernetes-build-cicd-jenkins-agent",
   yaml: readTrusted('jenkins/podTemplate.yaml'),
@@ -16,47 +15,53 @@ podTemplate(
 ) {
 
 node(POD_LABEL) {
-    stage("setup"){
-        sh "env"
-    }
-    stage("checkout") {        
-        gitHash = gitCheckout()
-        echo "Git hash: ${gitHash}"
-    }
-    stage("build") {
-        container("ubuntu") {
-            withCredentials([
-                usernamePassword(credentialsId: 'repo-symphony', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_TOKEN')
-            ]) {
-                withEnv([
-                    "GOPROXY=https://\${ARTIFACTORY_USER}:\${ARTIFACTORY_TOKEN}@repo.symphony.com/artifactory/api/go/go-remote-mirror"
-                ]) {
-                    sh """
-                    mv packaging/debian ./
-                    echo 1.0 > debian/source/format
-                    dpkg-buildpackage -us -uc -rfakeroot 
-                    """
+  properties([disableConcurrentBuilds(abortPrevious: true)])
 
-                    sh 'find ../ -type f -name "apt-transport-artifact-registry_20210304.00-g1_amd64.deb"'
-                } 
-            }
-        }
-    }
+  stage("setup"){
+    sh "env | sort"
+  }
 
-    stage("publish") {
+  stage("checkout") {        
+    gitHash = gitCheckout()
+    version = "${BRANCH_NAME}.${BUILD_ID}.${gitHash}".toLowerCase()
+    addArtifactLinkToDescription("${projectRepo}:${version}", "https://console.cloud.google.com/artifacts/generic/sym-prod-mr-tools-01/us-east4/sym-generic/${projectRepo}/${version}")
+  }
+
+  stage("build") {
+    container("ubuntu") {
+      withCredentials([
+              usernamePassword(credentialsId: 'repo-symphony', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_TOKEN')
+      ]) {
         sh """
-        gcloud artifacts generic upload \
-            --project=sym-prod-mr-tools-01 \
-            --source="../apt-transport-artifact-registry_20210304.00-g1_amd64.deb" \
-            --package=deb \
-            --version=1.0 \
-            --location=us-east4 \
-            --repository=sym-generic
+          export "GOPROXY=https://\${ARTIFACTORY_USER}:\${ARTIFACTORY_TOKEN}@repo.symphony.com/artifactory/api/go/go-virtual-mirror"
+          mv packaging/debian ./
+          echo 1.0 > debian/source/format
+          sed -i 's/1.23/1.22/g' go.mod
+          sed -i '/GOPROXY/d' debian/rules
+          dpkg-buildpackage -us -uc -rfakeroot || true
         """
+      }
     }
+  }
+
+  stage("publish") {
+    sh """
+      gcloud artifacts generic upload \
+        --project=sym-prod-mr-tools-01 \
+        --source="../apt-transport-artifact-registry_20210304.00-g1_amd64.deb" \
+        --package=${projectRepo} \
+        --version=${version} \
+        --location=us-east4 \
+        --repository=sym-generic
+    """
+  }
 }}
 
 def addArtifactLinkToDescription(name, url) {
   String artifactLink = "<a href='${url}'>${name}</a><br>"
-  currentBuild.description = currentBuild.description + artifactLink
+  if (currentBuild.description) {
+    currentBuild.description = currentBuild.description + artifactLink
+  } else {
+    currentBuild.description = artifactLink
+  }
 }
