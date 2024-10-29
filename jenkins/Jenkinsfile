@@ -36,7 +36,7 @@ node(POD_LABEL) {
           export "GOPROXY=https://\${ARTIFACTORY_USER}:\${ARTIFACTORY_TOKEN}@repo.symphony.com/artifactory/api/go/go-virtual-mirror"
           mv packaging/debian ./
           echo 1.0 > debian/source/format
-          sed -i 's/1.23/1.22/g' go.mod
+          sed -i 's/golang-go/golang-1.23-go/g' debian/control
           sed -i '/GOPROXY/d' debian/rules
           dpkg-buildpackage -us -uc -rfakeroot || true
         """
