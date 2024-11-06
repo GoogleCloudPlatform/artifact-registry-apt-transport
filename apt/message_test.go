@@ -107,6 +107,17 @@ func TestAptWriterWriteMessage(t *testing.T) {
 			},
 			"123 Fake\n\n",
 		},
+		{
+			Message{
+				code:        123,
+				description: "Fake",
+				fields: map[string][]string{
+					"akey": {"val ending with newline\n"},
+					"zkey": {"val containing \n\n double newlines"},
+				},
+			},
+			"123 Fake\nakey: val ending with newline\\n\nzkey: val containing \\n\\n double newlines\n\n",
+		},
 	}
 
 	for _, tt := range tests {
