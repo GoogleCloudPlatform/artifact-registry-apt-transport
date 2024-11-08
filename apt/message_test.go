@@ -116,7 +116,7 @@ func TestAptWriterWriteMessage(t *testing.T) {
 					"zkey": {"val containing \n\n double newlines"},
 				},
 			},
-			"123 Fake\nakey: val ending with newline\\n\nzkey: val containing \\n\\n double newlines\n\n",
+			"123 Fake\nakey: val ending with newline \nzkey: val containing    double newlines\n\n",
 		},
 	}
 

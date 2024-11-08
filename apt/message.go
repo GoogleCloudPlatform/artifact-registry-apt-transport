@@ -55,8 +55,8 @@ func (m *Message) String() string {
 		for _, val := range m.fields[key] {
 			// Messages are allowed to contain newlines, but they must not contain double newlines,
 			// nor end in a newline (since this would result in a premature double newline). We'll
-			// encode all newlines here as \n for simplicity.
-			val = newlineRegexp.ReplaceAllString(val, "\\n")
+			// encode all newlines here as a space instead for simplicity.
+			val = newlineRegexp.ReplaceAllString(val, " ")
 
 			message = append(message, fmt.Sprintf("%s: %s", key, val))
 		}
