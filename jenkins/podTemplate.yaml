@@ -8,7 +8,7 @@ spec:
       allowPrivilegeEscalation: false
       readOnlyRootFilesystem: True
       privileged: false
-    image: "us-east4-docker.pkg.dev/sym-prod-mr-tools-01/jenkins-docker-us-east4/jnlp:jdk17.Production-142-c8ed43e"
+    image: "us-east4-docker.pkg.dev/sym-prod-mr-tools-01/jenkins-docker-us-east4/jnlp:jdk17"
     resources:
       requests:
         memory: "1Gi"
@@ -21,7 +21,7 @@ spec:
       - mountPath: "/home/jenkins"
         name: "homedir"
   - name: "ubuntu"
-    image: "us-east4-docker.pkg.dev/sym-prod-mr-tools-01/jenkins-docker-us-east4/ubuntu:noble.Production-146-8cc6c3f"
+    image: "us-east4-docker.pkg.dev/sym-prod-mr-tools-01/jenkins-docker-us-east4/ubuntu:noble"
     imagePullPolicy: Always
     securityContext:
       seccompProfile:
