@@ -16,9 +16,12 @@ package apt
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 )
+
+var newlineRegexp = regexp.MustCompile(`\r?\n`)
 
 // Message represents a single RFC822 Apt message.
 type Message struct {
@@ -50,6 +53,11 @@ func (m *Message) String() string {
 	message := []string{fmt.Sprintf("%d %s", m.code, m.description)}
 	for _, key := range sortedKeys {
 		for _, val := range m.fields[key] {
+			// Messages are allowed to contain newlines, but they must not contain double newlines,
+			// nor end in a newline (since this would result in a premature double newline). We'll
+			// encode all newlines here as a space instead for simplicity.
+			val = newlineRegexp.ReplaceAllString(val, " ")
+
 			message = append(message, fmt.Sprintf("%s: %s", key, val))
 		}
 	}
