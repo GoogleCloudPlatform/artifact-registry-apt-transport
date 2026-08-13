@@ -2,13 +2,11 @@
 # See the OWNERS docs at https://go.k8s.io/owners
 
 approvers:
-  - ajorg
   - bkatyl
   - chaitanyakulkarni28
-  - dorileo
   - drewhli
-  - elicriffield
   - jjerger
-  - karnvadaliya
-  - koln67
-  - lpleahy
+  - saswatpadhi
+  - tylerjdao
+  - shenpai35
+  - CarsonGL
