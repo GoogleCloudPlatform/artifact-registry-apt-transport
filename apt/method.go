@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	cloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
+	cloudPlatformScope           = "https://www.googleapis.com/auth/cloud-platform"
+	googleApplicationCredentials = "GOOGLE_APPLICATION_CREDENTIALS"
 )
 
 // NewAptMethod returns an AptMethod.
@@ -67,8 +68,10 @@ type Method struct {
 }
 
 type aptMethodConfig struct {
-	serviceAccountJSON, serviceAccountEmail string
-	debug                                   bool
+	serviceAccountJSON               string
+	googleApplicationCredentialsPath string
+	serviceAccountEmail              string
+	debug                            bool
 }
 
 // Run runs the method.
@@ -107,24 +110,34 @@ func (m *Method) initClient(ctx context.Context) error {
 
 	var ts oauth2.TokenSource
 	switch {
+	case m.config.googleApplicationCredentialsPath != "":
+		var err error
+		ts, err = getCredentialsFromPath(ctx, m.config.googleApplicationCredentialsPath)
+		if err != nil {
+			return err
+		}
 	case m.config.serviceAccountJSON != "":
-		json, err := os.ReadFile(m.config.serviceAccountJSON)
+		var err error
+		ts, err = getServiceAccountJSON(ctx, m.config.serviceAccountJSON)
 		if err != nil {
-			return fmt.Errorf("failed to read service account JSON file: %v", err)
+			return err
 		}
-		creds, err := google.CredentialsFromJSON(ctx, json, cloudPlatformScope)
-		if err != nil {
-			return fmt.Errorf("failed to obtain creds from service account JSON: %v", err)
-		}
-		ts = creds.TokenSource
 	case m.config.serviceAccountEmail != "":
 		ts = google.ComputeTokenSource(m.config.serviceAccountEmail)
 	default:
-		creds, err := google.FindDefaultCredentials(ctx, cloudPlatformScope)
-		if err != nil {
-			return fmt.Errorf("failed to obtain default creds: %v", err)
+		if filename := os.Getenv(googleApplicationCredentials); filename != "" {
+			var err error
+			ts, err = getCredentialsFromPath(ctx, filename)
+			if err != nil {
+				return err
+			}
+		} else {
+			creds, err := google.FindDefaultCredentials(ctx, cloudPlatformScope)
+			if err != nil {
+				return fmt.Errorf("failed to obtain default creds: %v", err)
+			}
+			ts = creds.TokenSource
 		}
-		ts = creds.TokenSource
 	}
 	if ts == nil {
 		return errors.New("failed to obtain creds")
@@ -261,6 +274,8 @@ func (m *Method) handleConfigure(msg *Message) {
 			return
 		}
 		switch parts[0] {
+		case "Acquire::gar::Application-Credentials":
+			m.config.googleApplicationCredentialsPath = strings.TrimSpace(parts[1])
 		case "Acquire::gar::Service-Account-JSON":
 			m.config.serviceAccountJSON = strings.TrimSpace(parts[1])
 		case "Acquire::gar::Service-Account-Email":
@@ -269,8 +284,68 @@ func (m *Method) handleConfigure(msg *Message) {
 			m.config.debug = stringToBool(strings.TrimSpace(parts[1]))
 		}
 	}
-	// Enforce the precedence of these two options.
+	// Enforce the precedence of these options.
+	if m.config.googleApplicationCredentialsPath != "" {
+		m.config.serviceAccountJSON = ""
+		m.config.serviceAccountEmail = ""
+	}
 	if m.config.serviceAccountJSON != "" {
 		m.config.serviceAccountEmail = ""
 	}
+}
+
+func getCredentialsFromPath(ctx context.Context, path string) (oauth2.TokenSource, error) {
+	tokenFound, err := isToken(path)
+	if err != nil {
+		return nil, err
+	}
+	if tokenFound {
+		ts, err := getToken(path)
+		if err != nil {
+			return nil, err
+		}
+		return ts, nil
+	}
+	ts, err := getServiceAccountJSON(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	return ts, nil
+}
+
+func isToken(path string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	buf := make([]byte, 5)
+	if _, err := io.ReadFull(f, buf); err != nil {
+		return false, err
+	}
+	return string(buf) == "ya29.", nil
+}
+
+func getServiceAccountJSON(ctx context.Context, path string) (oauth2.TokenSource, error) {
+	json, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read service account JSON file: %v", err)
+	}
+	creds, err := google.CredentialsFromJSON(ctx, json, cloudPlatformScope)
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain creds from service account JSON: %v", err)
+	}
+	token, err := creds.TokenSource.Token()
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain token from service account JSON: %v", err)
+	}
+	return oauth2.StaticTokenSource(token), nil
+}
+
+func getToken(path string) (oauth2.TokenSource, error) {
+	rawToken, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read token file: %v", err)
+	}
+	return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: string(rawToken)}), nil
 }
