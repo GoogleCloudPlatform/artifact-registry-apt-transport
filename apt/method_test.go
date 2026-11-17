@@ -16,9 +16,15 @@ package apt
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"crypto/md5"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -326,5 +332,122 @@ func TestAptMethodRunFail(t *testing.T) {
 		if err := p.Close(); err != nil {
 			t.Errorf("Error from %v: %v", p, err)
 		}
+	}
+}
+
+type trackingReadCloser struct {
+	io.Reader
+	closed bool
+}
+
+func (t *trackingReadCloser) Close() error {
+	t.closed = true
+	return nil
+}
+
+type failingReader struct {
+	err error
+}
+
+func (f failingReader) Read([]byte) (int, error) {
+	return 0, f.err
+}
+
+func TestDownloaderImplDownload(t *testing.T) {
+	dl := downloaderImpl{}
+
+	t.Run("streams multi-chunk payload to disk and returns MD5", func(t *testing.T) {
+		payload := bytes.Repeat([]byte("artifact-registry-apt-stream-chunk-"), 4096) // ~140 KiB (> 32 KiB io.Copy buffer)
+		wantHash := fmt.Sprintf("%x", md5.Sum(payload))
+		body := &trackingReadCloser{Reader: bytes.NewReader(payload)}
+		dest := filepath.Join(t.TempDir(), "pkg.deb")
+
+		gotHash, err := dl.download(body, dest)
+		if err != nil {
+			t.Fatalf("download failed: %v", err)
+		}
+		if !body.closed {
+			t.Error("expected response body to be closed")
+		}
+		if gotHash != wantHash {
+			t.Errorf("got MD5 %q, want %q", gotHash, wantHash)
+		}
+		gotBytes, err := os.ReadFile(dest)
+		if err != nil {
+			t.Fatalf("os.ReadFile(%q) failed: %v", dest, err)
+		}
+		if !bytes.Equal(gotBytes, payload) {
+			t.Errorf("downloaded file size = %d, want %d (contents mismatch)", len(gotBytes), len(payload))
+		}
+	})
+
+	t.Run("returns error and closes body on stream read failure", func(t *testing.T) {
+		readErr := errors.New("simulated network failure")
+		body := &trackingReadCloser{
+			Reader: io.MultiReader(strings.NewReader("partial-data"), failingReader{err: readErr}),
+		}
+		dest := filepath.Join(t.TempDir(), "partial.deb")
+
+		_, err := dl.download(body, dest)
+		if !errors.Is(err, readErr) {
+			t.Fatalf("download error = %v, want %v", err, readErr)
+		}
+		if !body.closed {
+			t.Error("expected response body to be closed on read error")
+		}
+	})
+
+	t.Run("returns error and closes body on invalid destination path", func(t *testing.T) {
+		body := &trackingReadCloser{Reader: strings.NewReader("data")}
+		dest := filepath.Join(t.TempDir(), "nonexistent-dir", "pkg.deb")
+
+		_, err := dl.download(body, dest)
+		if err == nil {
+			t.Fatal("download succeeded on nonexistent parent directory, want error")
+		}
+		if !body.closed {
+			t.Error("expected response body to be closed when os.Create fails")
+		}
+	})
+}
+
+type bodyTrackingHTTPClient struct {
+	code int
+	body *trackingReadCloser
+}
+
+func (c bodyTrackingHTTPClient) Do(*http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: c.code,
+		Header:     http.Header{"Last-Modified": {"whenever"}},
+		Body:       c.body,
+	}, nil
+}
+
+func TestHandleAcquireClosesBodyOnNon200(t *testing.T) {
+	for _, statusCode := range []int{http.StatusNotModified, http.StatusNotFound} {
+		t.Run(fmt.Sprintf("status_%d", statusCode), func(t *testing.T) {
+			body := &trackingReadCloser{Reader: strings.NewReader("response body")}
+			var out bytes.Buffer
+			m := &Method{
+				config: &aptMethodConfig{},
+				writer: NewAptMessageWriter(&out),
+				client: bodyTrackingHTTPClient{code: statusCode, body: body},
+				dl:     fakeDownloader{},
+			}
+
+			_ = m.handleAcquire(context.Background(), &Message{
+				code:        600,
+				description: "URI Acquire",
+				fields: map[string][]string{
+					"URI":      {"ar+https://us-apt.pkg.dev/projects/p/pkg.deb"},
+					"Filename": {"/path/to/file"},
+				},
+			})
+
+			if !body.closed {
+				t.Errorf("expected resp.Body to be closed for status %d", statusCode)
+			}
+		})
 	}
 }
