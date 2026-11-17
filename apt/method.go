@@ -129,8 +129,27 @@ func (m *Method) initClient(ctx context.Context) error {
 	if ts == nil {
 		return errors.New("failed to obtain creds")
 	}
-	m.client = oauth2.NewClient(ctx, ts)
+	m.client = newOAuthClient(ctx, ts)
 	return nil
+}
+
+func checkRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	if req.URL.Scheme != "https" {
+		return fmt.Errorf("redirect to non-HTTPS scheme %q is not allowed", req.URL.Scheme)
+	}
+	if len(via) == 0 || !strings.EqualFold(req.URL.Host, via[0].URL.Host) {
+		return fmt.Errorf("redirect to different host %q is not allowed", req.URL.Host)
+	}
+	return nil
+}
+
+func newOAuthClient(ctx context.Context, ts oauth2.TokenSource) *http.Client {
+	client := oauth2.NewClient(ctx, ts)
+	client.CheckRedirect = checkRedirect
+	return client
 }
 
 // download performs the actual downloading to target file and returns
