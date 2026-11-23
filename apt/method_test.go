@@ -23,10 +23,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"golang.org/x/oauth2"
 )
 
 func TestHandleConfigure(t *testing.T) {
@@ -450,4 +453,165 @@ func TestHandleAcquireClosesBodyOnNon200(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCheckRedirect(t *testing.T) {
+	originReq, err := http.NewRequest("GET", "https://us-apt.pkg.dev/projects/my-proj/dists/main/InRelease", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest failed: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		targetURL string
+		hops      int
+		wantErr   bool
+	}{
+		{
+			name:      "same host HTTPS redirect allowed",
+			targetURL: "https://us-apt.pkg.dev/projects/my-proj/pool/pkg.deb",
+			hops:      1,
+			wantErr:   false,
+		},
+		{
+			name:      "case-insensitive same host HTTPS redirect allowed",
+			targetURL: "https://US-APT.PKG.DEV/projects/my-proj/pool/pkg.deb",
+			hops:      1,
+			wantErr:   false,
+		},
+		{
+			name:      "redirect to HTTP scheme blocked",
+			targetURL: "http://us-apt.pkg.dev/projects/my-proj/pool/pkg.deb",
+			hops:      1,
+			wantErr:   true,
+		},
+		{
+			name:      "redirect to different host blocked",
+			targetURL: "https://attacker.example.com/pkg.deb",
+			hops:      1,
+			wantErr:   true,
+		},
+		{
+			name:      "redirect to different port blocked",
+			targetURL: "https://us-apt.pkg.dev:8443/projects/my-proj/pool/pkg.deb",
+			hops:      1,
+			wantErr:   true,
+		},
+		{
+			name:      "redirect after 10 hops blocked",
+			targetURL: "https://us-apt.pkg.dev/projects/my-proj/pool/pkg.deb",
+			hops:      10,
+			wantErr:   true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req, err := http.NewRequest("GET", tc.targetURL, nil)
+			if err != nil {
+				t.Fatalf("http.NewRequest(%q) failed: %v", tc.targetURL, err)
+			}
+			via := make([]*http.Request, tc.hops)
+			for i := range via {
+				via[i] = originReq
+			}
+			err = checkRedirect(req, via)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("checkRedirect(%q, %d hops) error = %v, wantErr %v", tc.targetURL, tc.hops, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestHandleAcquireRedirects(t *testing.T) {
+	const secretToken = "secret-token-123"
+
+	t.Run("blocks cross-host redirect and does not leak token", func(t *testing.T) {
+		attackerCalled := false
+		var leakedAuthHeader string
+		attackerServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attackerCalled = true
+			leakedAuthHeader = r.Header.Get("Authorization")
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer attackerServer.Close()
+
+		registryServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, attackerServer.URL+"/pkg.deb", http.StatusFound)
+		}))
+		defer registryServer.Close()
+
+		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, registryServer.Client())
+		var out bytes.Buffer
+		m := &Method{
+			config: &aptMethodConfig{},
+			writer: NewAptMessageWriter(&out),
+			client: newOAuthClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: secretToken})),
+			dl:     fakeDownloader{},
+		}
+
+		arURI := strings.Replace(registryServer.URL+"/pkg.deb", "https://", "ar+https://", 1)
+		err := m.handleAcquire(ctx, &Message{
+			code:        600,
+			description: "URI Acquire",
+			fields: map[string][]string{
+				"URI":      {arURI},
+				"Filename": {"/path/to/file"},
+			},
+		})
+		if err == nil {
+			t.Fatal("handleAcquire succeeded, want error on cross-host redirect")
+		}
+		if attackerCalled {
+			t.Fatalf("attacker server was contacted (Authorization: %q), want redirect blocked before request", leakedAuthHeader)
+		}
+		if !strings.Contains(out.String(), "400 URI Failure") {
+			t.Errorf("expected 400 URI Failure output, got %q", out.String())
+		}
+	})
+
+	t.Run("allows same-host HTTPS redirect and preserves token", func(t *testing.T) {
+		var finalAuthHeader string
+		var registryURL string
+		registryServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/redirect" {
+				http.Redirect(w, r, registryURL+"/pkg.deb", http.StatusFound)
+				return
+			}
+			finalAuthHeader = r.Header.Get("Authorization")
+			w.Header().Set("Content-Length", "9")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ABCDEFGHI"))
+		}))
+		defer registryServer.Close()
+		registryURL = registryServer.URL
+
+		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, registryServer.Client())
+		var out bytes.Buffer
+		m := &Method{
+			config: &aptMethodConfig{},
+			writer: NewAptMessageWriter(&out),
+			client: newOAuthClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: secretToken})),
+			dl:     fakeDownloader{},
+		}
+
+		arURI := strings.Replace(registryServer.URL+"/redirect", "https://", "ar+https://", 1)
+		err := m.handleAcquire(ctx, &Message{
+			code:        600,
+			description: "URI Acquire",
+			fields: map[string][]string{
+				"URI":      {arURI},
+				"Filename": {"/path/to/file"},
+			},
+		})
+		if err != nil {
+			t.Fatalf("handleAcquire failed on same-host HTTPS redirect: %v", err)
+		}
+		if want := "Bearer " + secretToken; finalAuthHeader != want {
+			t.Errorf("Authorization header on redirected request = %q, want %q", finalAuthHeader, want)
+		}
+		if !strings.Contains(out.String(), "201 URI Done") {
+			t.Errorf("expected 201 URI Done output, got %q", out.String())
+		}
+	})
 }
