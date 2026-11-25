@@ -152,22 +152,25 @@ func newOAuthClient(ctx context.Context, ts oauth2.TokenSource) *http.Client {
 	return client
 }
 
-// download performs the actual downloading to target file and returns
+// download streams body to the target file and returns
 // an MD5 hash of the downloaded file.
 func (r downloaderImpl) download(body io.ReadCloser, filename string) (string, error) {
 	defer body.Close()
-	data, err := io.ReadAll(body)
-	if err != nil {
-		return "", err
-	}
 	file, err := os.Create(filename)
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
 
-	_, err = file.Write(data)
-	return fmt.Sprintf("%x", md5.Sum(data)), err
+	hasher := md5.New()
+	if _, err := io.Copy(io.MultiWriter(file, hasher), body); err != nil {
+		_ = file.Close()
+		return "", err
+	}
+	if err := file.Close(); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
 
 func (m *Method) handleAcquire(ctx context.Context, msg *Message) error {
@@ -217,6 +220,9 @@ func (m *Method) handleAcquire(ctx context.Context, msg *Message) error {
 	if err != nil {
 		m.writer.FailURI(uri, err.Error())
 		return err
+	}
+	if resp.Body != nil {
+		defer resp.Body.Close()
 	}
 
 	size := resp.Header.Get("Content-Length")
